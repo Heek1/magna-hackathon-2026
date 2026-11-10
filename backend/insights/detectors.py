@@ -22,7 +22,7 @@ MIN_HISTORY_DAYS = 5
 ANOMALY_MIN_RUN_MIN = 10
 
 
-def _recurring_patterns(ctx: Context) -> list[dict]:
+def _recurring_patterns(ctx: Context, min_rate: float = RECUR_MIN_RATE) -> list[dict]:
     """Downtime codes that repeat on the same weekday and shift hour."""
     down = ctx.downtime
     if down.empty:
@@ -37,8 +37,10 @@ def _recurring_patterns(ctx: Context) -> list[dict]:
         # only if the stop has already happened (otherwise today would dilute the rate).
         reached = ctx.hours[(ctx.hours["hour"] == hour) & (ctx.hours["date"].dt.day_of_week == wd)]
         opportunities = set(reached.loc[reached["date"] < ctx.today, "date"]) | set(dates)
-        if len(dates) / len(opportunities) < RECUR_MIN_RATE:
+        if len(dates) / len(opportunities) < min_rate:
             continue
+        # a stop still running at sim_time has Trvanie_min clipped, so it is not a full occurrence
+        finished = rows if ctx.sim_time is None else rows[rows["Cas_do"] < ctx.sim_time]
         start_min = (rows["Cas_od"] - rows["date"]).dt.total_seconds().median() / 60
         patterns.append({
             "code": code,
@@ -48,6 +50,7 @@ def _recurring_patterns(ctx: Context) -> list[dict]:
             "opportunities": len(opportunities),
             "start_min": int(round(start_min)),
             "durations": rows["Trvanie_min"].tolist(),
+            "finished_durations": finished["Trvanie_min"].tolist(),
             "device": rows["Zariadenie"].iloc[0],
             "description": rows["Popis_EN"].iloc[0],
         })
