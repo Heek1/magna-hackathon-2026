@@ -34,7 +34,15 @@ GET  /api/state      → { sim_time, shift: {date, hour, plan_min, run_min, down
 GET  /api/history?from&to → [{date, availability, performance, quality, oee, downtime_min, nok}]
 GET  /api/heatmap?metric=oee|performance|downtime → [{date, hour, value}]
 GET  /api/losses?from&to  → [{type: downtime|microstop|retest|slowdown|nok, code, device,
-                         description, loss_pcs, loss_pp, count}]
+                         description, loss_pcs, loss_pp, count,
+                         fix: null | {action, method, owner_role}}]
+GET  /api/events?date    → [{time, kind: stop|defect|speed, code, title, detail, value, unit,
+                         active}]  events of that day (default: sim date) up to sim_time, newest
+                         first; speed = one event per hour with microstops/slowdown
+GET  /api/errors/{code}?from&to → {code, kind, description, device, count, minutes, loss_pcs,
+                         loss_pp, pattern: [{weekday, hour, count}], occurrences: [{start,
+                         minutes, pcs}], next_expected: null | datetime, fix: null | {action,
+                         method, owner_role}, gain_pp}
 GET  /api/insights   → [{id, kind: recurring_stop|prediction|slow_hour|quality|anomaly, severity:
                          high|medium|low, title, evidence, code, loss_pcs, loss_pp, expected_at,
                          recommendation: {action, method, owner_role, expected_gain_pcs}}]

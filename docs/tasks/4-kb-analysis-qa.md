@@ -1,3 +1,5 @@
+> **Update:** the visual design and the screens below are replaced by [the design brief](../design-brief.md) (mobile-first, Figma linked there). Where this task and the brief disagree, follow the brief.
+
 MEMBER 4 TASK. MY TASK — four parts, in order.
 A (by hour 4). backend/insights/countermeasures.json. For each of the 82 codes in the
    Ciselnik_chyb sheet — an entry {action, method, owner_role}: action — a concrete countermeasure in one
