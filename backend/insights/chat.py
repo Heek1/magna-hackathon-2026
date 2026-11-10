@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.error
 import urllib.request
 
 from .common import normalize
@@ -88,6 +89,8 @@ def chat(question: str, data) -> str:
     key = os.environ.get("GEMINI_API_KEY")
     if not key:
         raise ChatUnavailable("GEMINI_API_KEY is not set")
+    if not question.strip():
+        return ""  # the frontend probes availability with an empty question: no LLM call
     snapshot = json.dumps(build_snapshot(data), ensure_ascii=False)
     body = {
         "system_instruction": {"parts": [{"text": SYSTEM}]},
@@ -100,7 +103,14 @@ def chat(question: str, data) -> str:
         data=json.dumps(body).encode("utf-8"),
         headers={"Content-Type": "application/json", "x-goog-api-key": key},
     )
-    with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
-        reply = json.load(response)
-    parts = reply["candidates"][0]["content"]["parts"]
-    return "".join(part.get("text", "") for part in parts).strip()
+    # The API turns any exception into 503, which hides the chat panel for good; that is meant
+    # for a missing key only, so a failed LLM call is answered in words instead.
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
+            reply = json.load(response)
+        parts = reply["candidates"][0]["content"]["parts"]
+        return "".join(part.get("text", "") for part in parts).strip()
+    except urllib.error.HTTPError as error:
+        return f"The assistant could not answer (LLM service returned HTTP {error.code}). Please try again."
+    except (OSError, KeyError, IndexError, ValueError):
+        return "The assistant could not answer (LLM service did not respond). Please try again."
