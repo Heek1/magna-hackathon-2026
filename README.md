@@ -1,38 +1,35 @@
 # Magna Hackathon 2026 — AI OEE Improvement Engine
 
-Завдання 5: автоматичний аналіз причин втрат OEE і пропозиція контрзаходів.
-Спільний контекст, формули й API — у [CONTRACT.md](CONTRACT.md). Дані — `data/oee.xlsx`.
+Shared context, formulas and API contract: [CONTRACT.md](CONTRACT.md). Data: `data/oee.xlsx`.
 
-## Команда і зони відповідальності
+## Team and ownership
 
-| Учасник | Гілка | Папки, які належать учаснику | Завдання |
+| Member | Branch | Owned folders | Task |
 |---|---|---|---|
-| 1 — Backend core | `feat/backend-core` | `backend/` (крім `backend/insights/`) | [docs/tasks/1-backend-core.md](docs/tasks/1-backend-core.md) |
-| 2 — Insights | `feat/insights` | `backend/insights/` (крім `countermeasures.json`) | [docs/tasks/2-insights.md](docs/tasks/2-insights.md) |
-| 3 — Frontend + Live | `feat/frontend-live` | `frontend/` (крім `src/pages/analysis` і `src/pages/actions`) | [docs/tasks/3-frontend-live.md](docs/tasks/3-frontend-live.md) |
+| 1 — Backend core | `feat/backend-core` | `backend/` (except `backend/insights/`) | [docs/tasks/1-backend-core.md](docs/tasks/1-backend-core.md) |
+| 2 — Insights | `feat/insights` | `backend/insights/` (except `countermeasures.json`) | [docs/tasks/2-insights.md](docs/tasks/2-insights.md) |
+| 3 — Frontend + Live | `feat/frontend-live` | `frontend/` (except `src/pages/analysis` and `src/pages/actions`) | [docs/tasks/3-frontend-live.md](docs/tasks/3-frontend-live.md) |
 | 4 — KB, Analysis, QA | `feat/kb-analysis-qa` | `backend/insights/countermeasures.json`, `frontend/src/pages/analysis`, `frontend/src/pages/actions`, `docs/pitch.md` | [docs/tasks/4-kb-analysis-qa.md](docs/tasks/4-kb-analysis-qa.md) |
 
-## Правила
+## Rules
 
-- У `main` ніхто не пушить напряму — лише тімлід зливає pull request.
-- Кожен змінює **тільки свої папки** (див. таблицю).
-- Коміти малі й часті; пуш щонайменше раз на годину.
-- Зміни `CONTRACT.md` — лише через тімліда.
-- Перед кожною точкою інтеграції зроби rebase на `main`:
-  `git fetch origin && git rebase origin/main`, потім `git push --force-with-lease`.
+- Nobody pushes to `main` directly — only the team lead merges pull requests.
+- Each member changes **only their own folders** (see the table).
+- Small, frequent commits; push at least once an hour.
+- Contract changes go through the team lead only.
+- Before every integration point, rebase onto `main`:
+  `git fetch origin && git rebase origin/main`, then `git push --force-with-lease`.
 
-## Точки інтеграції
+## Integration points
 
-| Година | Подія |
-|---|---|
-| 8-ма | Інтеграція 1: моки → реальні ендпоінти, перші інсайти |
-| 16-та | Інтеграція 2: усі функції етапу 2 |
-| 20-та | **Заморозка функцій** — далі лише виправлення помилок і пітч |
+- Hour 8 — integration 1
+- Hour 16 — integration 2
+- Hour 20 — integration 3, **feature freeze**
 
-## Старт
+## Getting started
 
 ```bash
 git clone https://github.com/Heek1/magna-oee-engine.git
 cd magna-oee-engine
-git checkout <твоя-гілка>
+git checkout <your-branch>
 ```
