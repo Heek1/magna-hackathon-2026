@@ -65,8 +65,12 @@ def build_state() -> dict:
         "sim_time": snap.sim_time.isoformat(),
         "shift": {"date": snap.sim_time.date().isoformat(), "hour": current_hour, **shift},
         "hours": hours,
-        "active_downtime": sim.active_downtime(),
+        "active_downtime": _english(sim.active_downtime()),
     }
+
+
+def _english(active: dict | None) -> dict | None:
+    return {**active, "device": errors.device_en(active["device"])} if active else None
 
 
 @app.get("/api/state")

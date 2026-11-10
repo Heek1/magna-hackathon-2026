@@ -109,6 +109,22 @@ export interface ErrorDetail {
   next_expected: IsoDateTime | null;
   fix: Fix | null;
   gain_pp: number;
+  /** Plain-English "why it happens" from backend/insights explain(); null when there is nothing to say. */
+  why: string | null;
+}
+
+export type Confidence = "high" | "medium" | "low";
+
+/** GET /api/upcoming?hours — stops expected after sim_time, soonest first. */
+export interface UpcomingStop {
+  code: string;
+  kind: "stop";
+  title: string;
+  expected_at: IsoDateTime;
+  confidence: Confidence;
+  risk_pcs: number;
+  evidence: string;
+  insight_id: string | null;
 }
 
 export type InsightKind = "recurring_stop" | "prediction" | "slow_hour" | "quality" | "anomaly";

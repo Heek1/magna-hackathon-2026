@@ -2,7 +2,7 @@
   "code": "ST-038",
   "kind": "stop",
   "description": "Camera light module interrupted operation",
-  "device": "Kamera",
+  "device": "Camera",
   "count": 4,
   "minutes": 87.0,
   "loss_pcs": 87.0,

@@ -79,7 +79,7 @@
   ],
   "active_downtime": {
     "code": "ST-038",
-    "device": "Kamera",
+    "device": "Camera",
     "description": "Camera light module interrupted operation",
     "since": "2026-11-25T09:08:00"
   }
