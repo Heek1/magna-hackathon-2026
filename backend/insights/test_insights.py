@@ -1,0 +1,187 @@
+"""Run from backend/:  python -m pytest -q   (or only this folder: python -m pytest insights -q)
+
+The input frames come from the real loader and simulator (app.data, app.sim), exactly as
+app/insights_bridge.py passes them to get_insights.
+"""
+import json
+import os
+import tempfile
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+os.environ.setdefault("ACTIONS_DB", os.path.join(tempfile.mkdtemp(), "test_actions.db"))
+
+from app import data as loader  # noqa: E402
+from app.sim import snapshot  # noqa: E402
+
+from . import engine  # noqa: E402
+from .engine import get_insights  # noqa: E402
+
+XLSX = Path(__file__).resolve().parents[2] / "data" / "oee.xlsx"
+FIELDS = {"id", "kind", "severity", "title", "evidence", "code", "loss_pcs", "loss_pp",
+          "expected_at", "recommendation"}
+
+
+@pytest.fixture(scope="module")
+def ds():
+    return loader.load(XLSX)
+
+
+@pytest.fixture(autouse=True)
+def no_countermeasures(monkeypatch, tmp_path):
+    monkeypatch.setattr(engine, "COUNTERMEASURES_PATH", tmp_path / "missing.json")
+
+
+def at(ds, sim_time, with_sim_time=True):
+    """Frames as the API hands them over at sim_time."""
+    frames = snapshot(ds, pd.Timestamp(sim_time)).as_frames()
+    if not with_sim_time:
+        for df in frames.values():
+            df.attrs.pop("sim_time")
+    return frames
+
+
+def whole(ds):
+    return {"hours": ds.hours, "downtime": ds.downtime, "nok": ds.nok}
+
+
+def of_kind(insights, kind):
+    return [i for i in insights if i["kind"] == kind]
+
+
+def test_full_data_finds_the_known_patterns(ds):
+    insights = get_insights(whole(ds))
+
+    stops = {i["code"]: i for i in of_kind(insights, "recurring_stop")}
+    assert set(stops) == {"ST-038", "ST-047"}
+    assert stops["ST-038"]["loss_pcs"] == 100
+    assert stops["ST-047"]["loss_pcs"] == 60
+    assert "Nov 4, 11, 18, 25" in stops["ST-038"]["evidence"]
+    assert "at 09:08 on Kamera, 25 min each" in stops["ST-038"]["evidence"]
+    assert "at 08:08 on Leak test, 15 min each" in stops["ST-047"]["evidence"]
+    assert stops["ST-038"]["loss_pp"] == pytest.approx(100 / 9240 * 100, abs=0.01)
+
+    slow = {i["code"]: i for i in of_kind(insights, "slow_hour")}
+    assert set(slow) == {"slow_hour_1", "slow_hour_5"}
+    assert "88.5%" in slow["slow_hour_1"]["title"]
+    assert "86.9%" in slow["slow_hour_5"]["title"]
+
+    pareto = [i for i in of_kind(insights, "quality") if i["id"].startswith("quality:pareto")]
+    assert pareto[0]["code"] == "Q-031" and pareto[0]["loss_pcs"] == 38
+
+    assert of_kind(insights, "prediction") == []  # Nov 30 is a Monday
+
+
+def test_contract_shape_and_sorting(ds):
+    for frames in (whole(ds), at(ds, "2026-11-25 08:30"), at(ds, "2026-11-25 09:20")):
+        insights = get_insights(frames)
+        assert insights
+        for item in insights:
+            assert set(item) == FIELDS
+            assert item["kind"] in {"recurring_stop", "prediction", "slow_hour", "quality", "anomaly"}
+            assert item["severity"] in {"high", "medium", "low"}
+            assert item["recommendation"] is None
+        losses = [i["loss_pcs"] for i in insights]
+        assert losses == sorted(losses, reverse=True)
+        assert len({i["id"] for i in insights}) == len(insights)
+        json.dumps(insights)  # plain JSON types only
+
+
+def test_no_false_recurring_stops_at_any_shift_end(ds):
+    for date in sorted(set(ds.hours["Datum"])):
+        end = date + pd.Timedelta(hours=14)
+        codes = {i["code"] for i in of_kind(get_insights(at(ds, end)), "recurring_stop")}
+        assert codes <= {"ST-038", "ST-047"}, f"{end}: {codes}"
+
+
+@pytest.mark.parametrize("with_sim_time", [True, False])
+def test_prediction_appears_before_the_stop_and_disappears_after(ds, with_sim_time):
+    before = of_kind(get_insights(at(ds, "2026-11-25 08:30", with_sim_time)), "prediction")
+    assert [i["code"] for i in before] == ["ST-038"]
+    assert before[0]["expected_at"] == "2026-11-25T09:08:00"
+    assert before[0]["loss_pcs"] == 25
+    assert before[0]["severity"] == "high"
+
+    for later in ("2026-11-25 09:10", "2026-11-25 10:30"):
+        assert of_kind(get_insights(at(ds, later, with_sim_time)), "prediction") == []
+
+
+def test_prediction_on_thursday_and_third_week(ds):
+    thursday = of_kind(get_insights(at(ds, "2026-11-26 07:30")), "prediction")
+    assert [(i["code"], i["expected_at"]) for i in thursday] == [("ST-047", "2026-11-26T08:08:00")]
+    # two earlier Wednesdays are enough to warn on the third one, right from the shift start
+    third = of_kind(get_insights(at(ds, "2026-11-18 06:00")), "prediction")
+    assert [i["code"] for i in third] == ["ST-038"]
+    assert of_kind(get_insights(at(ds, "2026-11-24 08:30")), "prediction") == []
+
+
+def test_stop_in_progress_counts_only_the_elapsed_minutes(ds):
+    insights = get_insights(at(ds, "2026-11-25 09:20"))  # ST-038 is active since 09:08
+    stop = next(i for i in insights if i["id"] == "recurring_stop:ST-038:wed:4")
+    assert stop["loss_pcs"] == 75 + 12
+    assert "4 of 4 Wednesdays (Nov 4, 11, 18, 25)" in stop["evidence"]
+    assert "typically 25 min" in stop["evidence"]
+    assert of_kind(insights, "prediction") == []
+
+
+def test_microstop_anomaly_before_the_camera_stop(ds):
+    insights = of_kind(get_insights(at(ds, "2026-11-25 08:59")), "anomaly")
+    item = next(i for i in insights if i["id"] == "anomaly:microstop:2026-11-25:3")
+    assert item["code"] == "microstop"
+
+
+def test_oee_anomaly_in_an_hour_with_an_unusual_stop(ds):
+    # 13 min of ST-046 in hour 2, which normally runs without downtime
+    insights = of_kind(get_insights(at(ds, "2026-11-25 08:00")), "anomaly")
+    assert any(i["id"] == "anomaly:oee:2026-11-25:2" for i in insights)
+
+
+def test_no_anomaly_while_the_hour_has_barely_run(ds):
+    assert of_kind(get_insights(at(ds, "2026-11-25 08:05")), "anomaly") == []
+
+
+def test_scrap_spike_against_the_previous_days(ds):
+    # Q-030: 3 pcs on Nov 12 vs 0.8 per shift before
+    spikes = [i for i in get_insights(at(ds, "2026-11-12 14:00")) if i["id"].startswith("quality:spike")]
+    assert [i["id"] for i in spikes] == ["quality:spike:Q-030:2026-11-12"]
+    assert not any(i["id"].startswith("quality:spike") for i in get_insights(at(ds, "2026-11-13 14:00")))
+
+
+def test_recommendation_from_countermeasures(ds, monkeypatch, tmp_path):
+    path = tmp_path / "countermeasures.json"
+    path.write_text(json.dumps({
+        "ST-038": {"action": "Clean the camera light", "method": "Autonomous maintenance",
+                   "owner_role": "Maintenance"},
+        "slow_hour": {"action": "Prepare the line", "method": "Standard work",
+                      "owner_role": "Team leader"},
+    }), encoding="utf-8")
+    monkeypatch.setattr(engine, "COUNTERMEASURES_PATH", path)
+
+    by_id = {i["id"]: i for i in get_insights(whole(ds))}
+    assert by_id["recurring_stop:ST-038:wed:4"]["recommendation"] == {
+        "action": "Clean the camera light", "method": "Autonomous maintenance",
+        "owner_role": "Maintenance", "expected_gain_pcs": 100.0}
+    assert by_id["slow_hour:1"]["recommendation"]["owner_role"] == "Team leader"  # by kind
+    assert by_id["recurring_stop:ST-047:thu:3"]["recommendation"] is None
+
+
+def test_start_of_the_first_shift(ds):
+    assert get_insights(at(ds, "2026-11-02 06:00")) == []  # no rows yet
+    insights = get_insights(at(ds, "2026-11-02 06:20"))
+    assert of_kind(insights, "recurring_stop") == []
+    assert of_kind(insights, "slow_hour") == []
+
+
+def test_api_serves_the_real_insights():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    client.post("/api/sim/control", json={"paused": True, "jump_to": "2026-11-25T08:30:00"})
+    insights = client.get("/api/insights").json()
+    assert [(i["code"], i["expected_at"]) for i in insights if i["kind"] == "prediction"] == [
+        ("ST-038", "2026-11-25T09:08:00")]
+    assert {i["code"] for i in insights if i["kind"] == "recurring_stop"} == {"ST-038", "ST-047"}
