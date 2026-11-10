@@ -272,5 +272,6 @@
     "method": "5-Why",
     "owner_role": "Quality"
   },
-  "gain_pp": 0.42
+  "gain_pp": 0.42,
+  "why": "32 NOK pcs, 33% of all scrap, on 15 of 18 days — a steady defect, not a one-off. Most in shift hour 5 (8 of 32 pcs), a consistently slow hour."
 }
