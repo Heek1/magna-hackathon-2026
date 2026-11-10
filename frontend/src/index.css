@@ -33,9 +33,26 @@
   .overline-label {
     @apply font-sans text-overline uppercase text-text-tertiary;
   }
+  /* Full viewport height that stays correct under the large-screen zoom (vh is not zoomed). */
+  .h-viewport {
+    height: calc(100dvh / var(--app-zoom));
+  }
   /* Deprecated alias of .overline for older pages. */
   .label {
     @apply font-sans text-label uppercase text-text-tertiary;
+  }
+}
+
+/* Projector / large screens: the same phone-sized components, scaled up so they read from 3 m. */
+:root {
+  --app-zoom: 1;
+}
+@media (min-width: 1600px) {
+  :root {
+    --app-zoom: 1.25;
+  }
+  html {
+    zoom: var(--app-zoom);
   }
 }
 

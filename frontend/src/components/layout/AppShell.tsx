@@ -30,7 +30,7 @@ export function AppShell() {
 
   if (desktop) {
     return (
-      <div className="flex h-dvh overflow-hidden">
+      <div className="h-viewport flex overflow-hidden">
         <SideNav items={appTabs} />
         <main className="min-w-0 flex-1 overflow-hidden">
           <Outlet />
