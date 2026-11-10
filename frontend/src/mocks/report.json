@@ -1,0 +1,96 @@
+{
+  "date": "2026-11-25",
+  "kpis": {
+    "plan_min": 190.0,
+    "run_min": 165.0,
+    "downtime_min": 25.0,
+    "produced": 147.1,
+    "ok": 145.1,
+    "nok": 2.0,
+    "availability": 0.8684,
+    "performance": 0.8914,
+    "quality": 0.9864,
+    "oee": 0.7636,
+    "target": 0.85
+  },
+  "top_losses": [
+    {
+      "type": "downtime",
+      "code": "ST-046",
+      "device": "Leak test",
+      "description": "Leak measurement unit interrupted test",
+      "loss_pcs": 13.0,
+      "loss_pp": 6.84,
+      "count": 1
+    },
+    {
+      "type": "downtime",
+      "code": "ST-038",
+      "device": "Kamera",
+      "description": "Camera light module interrupted operation",
+      "loss_pcs": 12.0,
+      "loss_pp": 6.32,
+      "count": 1
+    },
+    {
+      "type": "slowdown",
+      "code": "slowdown",
+      "device": null,
+      "description": "Slowdown",
+      "loss_pcs": 10.2,
+      "loss_pp": 5.36,
+      "count": 4
+    },
+    {
+      "type": "microstop",
+      "code": "microstop",
+      "device": null,
+      "description": "Microstops",
+      "loss_pcs": 6.4,
+      "loss_pp": 3.37,
+      "count": 4
+    },
+    {
+      "type": "retest",
+      "code": "retest",
+      "device": null,
+      "description": "Retests",
+      "loss_pcs": 1.3,
+      "loss_pp": 0.7,
+      "count": 4
+    }
+  ],
+  "insights": [
+    {
+      "id": "stub-1",
+      "kind": "recurring_stop",
+      "severity": "high",
+      "title": "Stub insight (backend/insights not implemented yet)",
+      "evidence": "Placeholder until get_insights() exists.",
+      "code": null,
+      "loss_pcs": 0,
+      "loss_pp": 0,
+      "expected_at": null,
+      "recommendation": null
+    }
+  ],
+  "actions": [
+    {
+      "id": 1,
+      "insight_id": "stub-1",
+      "title": "Clean camera and check lighting before shift",
+      "owner": "Maintenance",
+      "status": "open",
+      "created_at": "2026-11-10T16:00:43+00:00"
+    },
+    {
+      "id": 2,
+      "insight_id": null,
+      "title": "Line and material ready before break ends",
+      "owner": "Team leader",
+      "status": "in_progress",
+      "created_at": "2026-11-10T16:00:43+00:00"
+    }
+  ],
+  "summary": "Wednesday 2026-11-25: OEE 76.4 % (8.6 pp below the 85 % target) — availability 86.8 %, performance 89.1 %, quality 98.6 %. Produced 147.1 pcs, 145.1 OK, 2 NOK, 25 min downtime. Top losses: ST-046 (Leak test) 13 pcs; ST-038 (Kamera) 12 pcs; slowdown 10.2 pcs. 1 insight(s), highest impact: Stub insight (backend/insights not implemented yet). Actions: 2 total, 2 not done."
+}

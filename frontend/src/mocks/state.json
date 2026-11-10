@@ -1,0 +1,86 @@
+{
+  "sim_time": "2026-11-25T09:20:00",
+  "shift": {
+    "date": "2026-11-25",
+    "hour": 4,
+    "plan_min": 190.0,
+    "run_min": 165.0,
+    "downtime_min": 25.0,
+    "produced": 147.1,
+    "ok": 145.1,
+    "nok": 2.0,
+    "availability": 0.8684,
+    "performance": 0.8914,
+    "quality": 0.9864,
+    "oee": 0.7636,
+    "target": 0.85
+  },
+  "hours": [
+    {
+      "date": "2026-11-25",
+      "hour": 1,
+      "plan_min": 50.0,
+      "run_min": 50.0,
+      "downtime_min": 0.0,
+      "produced": 42.0,
+      "ok": 42.0,
+      "nok": 0.0,
+      "availability": 1.0,
+      "performance": 0.84,
+      "quality": 1.0,
+      "oee": 0.84,
+      "target": 0.85
+    },
+    {
+      "date": "2026-11-25",
+      "hour": 2,
+      "plan_min": 60.0,
+      "run_min": 47.0,
+      "downtime_min": 13.0,
+      "produced": 44.0,
+      "ok": 43.0,
+      "nok": 1.0,
+      "availability": 0.7833,
+      "performance": 0.9362,
+      "quality": 0.9773,
+      "oee": 0.7167,
+      "target": 0.85
+    },
+    {
+      "date": "2026-11-25",
+      "hour": 3,
+      "plan_min": 60.0,
+      "run_min": 60.0,
+      "downtime_min": 0.0,
+      "produced": 54.0,
+      "ok": 53.0,
+      "nok": 1.0,
+      "availability": 1.0,
+      "performance": 0.9,
+      "quality": 0.9815,
+      "oee": 0.8833,
+      "target": 0.85
+    },
+    {
+      "date": "2026-11-25",
+      "hour": 4,
+      "plan_min": 20.0,
+      "run_min": 8.0,
+      "downtime_min": 12.0,
+      "produced": 7.1,
+      "ok": 7.1,
+      "nok": 0.0,
+      "availability": 0.4,
+      "performance": 0.8857,
+      "quality": 1.0,
+      "oee": 0.3543,
+      "target": 0.85
+    }
+  ],
+  "active_downtime": {
+    "code": "ST-038",
+    "device": "Kamera",
+    "description": "Camera light module interrupted operation",
+    "since": "2026-11-25T09:08:00"
+  }
+}

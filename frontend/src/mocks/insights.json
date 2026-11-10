@@ -1,0 +1,14 @@
+[
+  {
+    "id": "stub-1",
+    "kind": "recurring_stop",
+    "severity": "high",
+    "title": "Stub insight (backend/insights not implemented yet)",
+    "evidence": "Placeholder until get_insights() exists.",
+    "code": null,
+    "loss_pcs": 0,
+    "loss_pp": 0,
+    "expected_at": null,
+    "recommendation": null
+  }
+]

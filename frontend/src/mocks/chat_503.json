@@ -1,0 +1,6 @@
+{
+  "status": 503,
+  "body": {
+    "detail": "Chat unavailable: chat() is not implemented yet"
+  }
+}
