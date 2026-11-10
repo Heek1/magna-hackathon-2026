@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import data, insights_bridge, oee, report
+from . import data, errors, insights_bridge, oee, report
 from .db import ActionStore
 from .sim import Simulator
 
@@ -25,6 +25,7 @@ TICK_SECONDS = 1.0
 
 sim = Simulator(data.load(DATA_PATH))
 actions = ActionStore(DB_PATH)
+fixes = errors.load_fixes()
 
 
 async def _ticker() -> None:
@@ -112,7 +113,29 @@ def get_heatmap(metric: str = "oee"):
 @app.get("/api/losses")
 def get_losses(from_: Annotated[date | None, Query(alias="from")] = None, to: date | None = None):
     snap = sim.snapshot()
-    return oee.losses(snap.hours, snap.downtime, snap.nok, from_, to)
+    return errors.with_fix(oee.losses(snap.hours, snap.downtime, snap.nok, from_, to), fixes)
+
+
+@app.get("/api/events")
+def get_events(day: Annotated[date | None, Query(alias="date")] = None):
+    snap = sim.snapshot()
+    return errors.events(snap.hours, snap.downtime, snap.nok, day or snap.sim_time.date(),
+                         snap.sim_time)
+
+
+@app.get("/api/errors/{code}")
+def get_error(code: str, from_: Annotated[date | None, Query(alias="from")] = None,
+              to: date | None = None):
+    snap = sim.snapshot()
+    item = errors.detail(code, snap.hours, snap.downtime, snap.nok, fixes, snap.sim_time, from_, to)
+    if item is None:
+        raise HTTPException(404, f"error {code} does not occur up to sim_time")
+    if item["kind"] == "stop":
+        try:
+            item["gain_pp"] = insights_bridge.whatif(snap.as_frames(), [code], from_, to)["gain_pp"]
+        except Exception:  # keep the loss share as the estimate
+            pass
+    return item
 
 
 @app.get("/api/insights")

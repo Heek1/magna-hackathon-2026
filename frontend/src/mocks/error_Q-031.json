@@ -1,0 +1,276 @@
+{
+  "code": "Q-031",
+  "kind": "defect",
+  "description": "Product circuit allows fluid escape",
+  "device": null,
+  "count": 29,
+  "minutes": 0.0,
+  "loss_pcs": 32.0,
+  "loss_pp": 0.42,
+  "pattern": [
+    {
+      "weekday": "Mon",
+      "hour": 6,
+      "count": 1
+    },
+    {
+      "weekday": "Mon",
+      "hour": 8,
+      "count": 1
+    },
+    {
+      "weekday": "Mon",
+      "hour": 9,
+      "count": 1
+    },
+    {
+      "weekday": "Mon",
+      "hour": 10,
+      "count": 1
+    },
+    {
+      "weekday": "Mon",
+      "hour": 12,
+      "count": 1
+    },
+    {
+      "weekday": "Mon",
+      "hour": 13,
+      "count": 1
+    },
+    {
+      "weekday": "Tue",
+      "hour": 7,
+      "count": 1
+    },
+    {
+      "weekday": "Tue",
+      "hour": 8,
+      "count": 1
+    },
+    {
+      "weekday": "Tue",
+      "hour": 9,
+      "count": 2
+    },
+    {
+      "weekday": "Tue",
+      "hour": 10,
+      "count": 3
+    },
+    {
+      "weekday": "Tue",
+      "hour": 11,
+      "count": 1
+    },
+    {
+      "weekday": "Tue",
+      "hour": 13,
+      "count": 2
+    },
+    {
+      "weekday": "Wed",
+      "hour": 8,
+      "count": 1
+    },
+    {
+      "weekday": "Wed",
+      "hour": 9,
+      "count": 1
+    },
+    {
+      "weekday": "Wed",
+      "hour": 10,
+      "count": 1
+    },
+    {
+      "weekday": "Wed",
+      "hour": 11,
+      "count": 1
+    },
+    {
+      "weekday": "Wed",
+      "hour": 12,
+      "count": 1
+    },
+    {
+      "weekday": "Wed",
+      "hour": 13,
+      "count": 2
+    },
+    {
+      "weekday": "Thu",
+      "hour": 9,
+      "count": 2
+    },
+    {
+      "weekday": "Thu",
+      "hour": 11,
+      "count": 1
+    },
+    {
+      "weekday": "Thu",
+      "hour": 12,
+      "count": 1
+    },
+    {
+      "weekday": "Fri",
+      "hour": 10,
+      "count": 2
+    }
+  ],
+  "occurrences": [
+    {
+      "start": "2026-11-02T12:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-03T07:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-03T09:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-03T10:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-03T11:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-04T11:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-04T13:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-05T09:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-09T06:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-09T08:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-09T13:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-10T09:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-11T13:00:00",
+      "minutes": null,
+      "pcs": 2.0
+    },
+    {
+      "start": "2026-11-13T10:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-16T09:00:00",
+      "minutes": null,
+      "pcs": 2.0
+    },
+    {
+      "start": "2026-11-16T10:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-17T08:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-17T10:00:00",
+      "minutes": null,
+      "pcs": 2.0
+    },
+    {
+      "start": "2026-11-17T13:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-18T09:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-18T10:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-18T12:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-19T09:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-19T11:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-19T12:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-20T10:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-24T10:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-24T13:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    },
+    {
+      "start": "2026-11-25T08:00:00",
+      "minutes": null,
+      "pcs": 1.0
+    }
+  ],
+  "next_expected": null,
+  "fix": {
+    "action": "Conduct 5-Why root cause analysis on component sealing surfaces and supplier gasket tolerances.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "gain_pp": 0.42
+}

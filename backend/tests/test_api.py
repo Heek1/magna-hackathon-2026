@@ -31,7 +31,7 @@ def test_endpoints_see_only_data_up_to_sim_time():
     assert len(client.get("/api/heatmap?metric=oee").json()) == 24
     assert client.get("/api/heatmap?metric=foo").status_code == 422
     losses = client.get("/api/losses?from=2026-11-04&to=2026-11-04").json()
-    assert {"type", "code", "device", "description", "loss_pcs", "loss_pp", "count"} == set(losses[0])
+    assert {"type", "code", "device", "description", "loss_pcs", "loss_pp", "count", "fix"} == set(losses[0])
 
 
 def test_insights_whatif_chat_stubs():

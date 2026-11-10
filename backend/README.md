@@ -49,6 +49,7 @@ Tests and frontend mocks:
 | `app/db.py` | SQLite store for actions |
 | `app/insights_bridge.py` | calls `backend/insights` (`get_insights`, `what_if`, `chat`), stubs until they exist |
 | `app/report.py` | daily report for `/api/report` |
+| `app/errors.py` | `/api/events`, `/api/errors/{code}`, `fix` on `/api/losses` (from `insights/countermeasures.json`) |
 | `app/main.py` | FastAPI routes, CORS for :5173, SSE stream |
 
 Simulator: starts at the first shift (2026-11-02 06:00), speed 60 (1 real second = 1 simulated

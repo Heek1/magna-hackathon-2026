@@ -1,0 +1,46 @@
+{
+  "code": "ST-038",
+  "kind": "stop",
+  "description": "Camera light module interrupted operation",
+  "device": "Kamera",
+  "count": 4,
+  "minutes": 87.0,
+  "loss_pcs": 87.0,
+  "loss_pp": 1.13,
+  "pattern": [
+    {
+      "weekday": "Wed",
+      "hour": 9,
+      "count": 4
+    }
+  ],
+  "occurrences": [
+    {
+      "start": "2026-11-04T09:08:00",
+      "minutes": 25.0,
+      "pcs": 25.0
+    },
+    {
+      "start": "2026-11-11T09:08:00",
+      "minutes": 25.0,
+      "pcs": 25.0
+    },
+    {
+      "start": "2026-11-18T09:08:00",
+      "minutes": 25.0,
+      "pcs": 25.0
+    },
+    {
+      "start": "2026-11-25T09:08:00",
+      "minutes": 12.0,
+      "pcs": 12.0
+    }
+  ],
+  "next_expected": "2026-12-02T09:08:00",
+  "fix": {
+    "action": "Inspect, clean, and test camera lighting module intensity during autonomous maintenance at shift start.",
+    "method": "Autonomous maintenance",
+    "owner_role": "Maintenance"
+  },
+  "gain_pp": 1.04
+}
