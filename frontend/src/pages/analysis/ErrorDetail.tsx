@@ -7,6 +7,7 @@ import { useActions, useErrorDetail, useInsights, useSimState } from "@/api/hook
 import { BottomBar } from "@/components/BottomBar";
 import { Card, CardHeader } from "@/components/Card";
 import { Chip } from "@/components/Chip";
+import { AskAiButton } from "@/components/ask/AskAiButton";
 import { PatternGrid } from "@/components/PatternGrid";
 import { useIsDesktop } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
@@ -98,6 +99,7 @@ export default function ErrorDetailPage() {
             </Card>
 
             <Solution d={d} />
+            <AskAiButton code={code} variant="chip" />
             {err && <p className="px-1 text-caption text-status-stop">{err}</p>}
           </motion.div>
         )}
