@@ -64,7 +64,10 @@ export function StatusHero(props: StatusHeroProps) {
 
       <div className="mt-3 flex items-end justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-title-l text-white">{props.title ?? "All stations running"}</h2>
+          {/* Long names (the data has full sentences) drop to Title M so the timer keeps its room. */}
+          <h2 className={cn("text-white", (props.title?.length ?? 0) > 24 ? "text-title-m" : "text-title-l")}>
+            {props.title ?? "All stations running"}
+          </h2>
           {(props.subtitle ?? !stopped) && (
             <p className="mt-0.5 text-body text-text-tertiary">{props.subtitle ?? "No stop right now"}</p>
           )}
@@ -98,7 +101,7 @@ function FixRow({ fix, onClick }: { fix: string; onClick?: () => void }) {
       <Wrench className="h-5 w-5 shrink-0 text-status-fix" aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="block text-caption text-text-tertiary">Recommended fix</span>
-        <span className="block text-body font-medium text-white">{fix}</span>
+        <span className="line-clamp-2 text-body font-medium text-white">{fix}</span>
       </span>
       {onClick && <ChevronRight className="h-5 w-5 shrink-0 text-text-tertiary" aria-hidden />}
     </Tag>

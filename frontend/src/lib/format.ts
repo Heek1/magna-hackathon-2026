@@ -86,3 +86,9 @@ export function withUnit(value: number, unit: string): string {
   const v = pcs(value);
   return `${v} ${unit === "pcs" && v === "1" ? "pc" : unit}`;
 }
+
+/** Greeting by time of day of the simulation clock. */
+export function greeting(d: Date): string {
+  const h = d.getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
