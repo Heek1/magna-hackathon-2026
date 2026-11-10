@@ -30,7 +30,8 @@ export const fonts = {
 
 /** Font sizes: [size, lineHeight, letterSpacing] — numbers are readable from 3 m on a 1080p projector. */
 export const fontSize = {
-  kpi: ["64px", { lineHeight: "1", letterSpacing: "-0.02em" }],
+  "kpi-hero": ["104px", { lineHeight: "0.9", letterSpacing: "-0.07em" }],
+  kpi: ["64px", { lineHeight: "1", letterSpacing: "-0.05em" }],
   "num-lg": ["40px", { lineHeight: "1", letterSpacing: "-0.01em" }],
   "num-md": ["24px", { lineHeight: "1.1" }],
   label: ["11px", { lineHeight: "1.2", letterSpacing: "0.08em" }],
