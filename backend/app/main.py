@@ -146,18 +146,18 @@ def get_error(code: str, from_: Annotated[date | None, Query(alias="from")] = No
             item["gain_pp"] = insights_bridge.whatif(snap.as_frames(), [code], from_, to)["gain_pp"]
         except Exception:  # keep the loss share as the estimate
             pass
-    item["why"] = insights_bridge.why(snap.as_frames(), code)
+    item["why"] = errors.english(insights_bridge.why(snap.as_frames(), code))
     return item
 
 
 @app.get("/api/upcoming")
 def get_upcoming(hours: int = Query(48, ge=1, le=168)):
-    return insights_bridge.upcoming(sim.snapshot().as_frames(), hours)
+    return errors.english(insights_bridge.upcoming(sim.snapshot().as_frames(), hours))
 
 
 @app.get("/api/insights")
 def get_insights():
-    return insights_bridge.insights(sim.snapshot().as_frames())
+    return errors.english(insights_bridge.insights(sim.snapshot().as_frames()))
 
 
 class WhatIfIn(BaseModel):
@@ -249,7 +249,7 @@ def get_report(day: Annotated[date | None, Query(alias="date")] = None):
     if not (snap.hours["Datum"].dt.date == day).any():
         raise HTTPException(404, f"no data for {day} up to sim_time {snap.sim_time.isoformat()}")
     return report.build(day, snap.hours, snap.downtime, snap.nok,
-                        insights_bridge.insights(snap.as_frames()), actions.list())
+                        errors.english(insights_bridge.insights(snap.as_frames())), actions.list())
 
 
 @app.post("/api/upload")

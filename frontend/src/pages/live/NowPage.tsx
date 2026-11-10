@@ -147,6 +147,8 @@ function ErrorsToday({
   onOpen: (code: string) => void;
 }) {
   const sorted = useMemo(() => [...(events.data ?? [])].sort((a, b) => b.time.localeCompare(a.time)), [events.data]);
+  // A running stop counts up with the sim clock, like the hero timer, between data refreshes.
+  const { now } = useSimClock();
   return (
     <Card>
       <CardHeader
@@ -166,7 +168,7 @@ function ErrorsToday({
               kind={e.kind}
               title={e.title}
               subtitle={`${kindLabel[e.kind]} · ${e.active ? "still running" : e.detail}`}
-              value={e.value}
+              value={e.active ? liveMinutes(e.time, now) : e.value}
               unit={e.unit}
               onClick={() => onOpen(e.code)}
             />
@@ -278,4 +280,9 @@ function RoleButton() {
       )}
     </>
   );
+}
+
+/** Whole minutes from the stop start to the (smoothed) sim clock. */
+function liveMinutes(start: string, now: Date): number {
+  return Math.max(0, Math.floor((now.getTime() - parseTime(start).getTime()) / 60_000));
 }
