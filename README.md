@@ -13,7 +13,7 @@ Shared context, formulas and API contract: [CONTRACT.md](CONTRACT.md). Data: `da
 
 ## Rules
 
-- Nobody pushes to `main` directly — only the team lead merges pull requests.
+- Nobody pushes to `main` directly — every change goes through a pull request, and each member merges their own PRs.
 - Each member changes **only their own folders** (see the table).
 - Small, frequent commits; push at least once an hour.
 - Contract changes go through the team lead only.
