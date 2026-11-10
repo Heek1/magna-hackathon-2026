@@ -13,6 +13,9 @@ import re
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+
+import pandas as pd
 
 from .common import WEEKDAYS, normalize
 from .engine import _load_countermeasures, get_insights
@@ -21,10 +24,12 @@ from .upcoming import upcoming
 from .whatif import SPEED_COLUMNS, what_if
 
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-DEFAULT_MODEL = "gemini-3.5-flash-lite"  # override with GEMINI_MODEL
-TIMEOUT_S = 10
-RETRY_PAUSE_S = 0.5
-RETRY_MIN_S = 4    # retry only if at least this much of the budget is left
+# Measured on the demo questions: 3.6 Flash with minimal thinking answers in ~2 s and gets
+# "tomorrow" right; 3.5 Flash-Lite is the fallback (its own quota) when the first is busy or slow.
+DEFAULT_MODEL = "gemini-3.6-flash"           # override with GEMINI_MODEL
+FALLBACK_MODEL = "gemini-3.5-flash-lite"     # override with GEMINI_FALLBACK_MODEL ("" = none)
+TIMEOUT_S = 10      # the whole answer, both models included
+HEDGE_S = 3.5       # the fallback starts alongside a primary that has not answered by then
 HISTORY_TURNS = 6
 MAX_TEXT = 600          # characters kept per history turn
 MAX_SOURCES = 4
@@ -37,9 +42,10 @@ SYSTEM = (
     "and do not calculate new ones: for gains use the what_if entries. If the snapshot does not "
     "contain the answer, say so. 1 lost piece = 1 planned minute; pp = OEE percentage points; "
     "*_pct values are percentages.\n"
-    "Answer the question first. If user_role is set, write from that role's point of view and, when "
-    "you name fixes, name the ones owned by that role first. If focus_error is set, the question is "
-    "about that error unless it says otherwise.\n"
+    "Answer the question first. Speak to the user as their assistant; never write as the user or "
+    "as their role (no \"As Maintenance, I\"). If user_role is set, when you name fixes, name the "
+    "ones owned by that role first. If focus_error is set, the question is about that error unless "
+    "it says otherwise. For upcoming stops use their \"when\" label.\n"
     "At most 80 words, plain text without markdown. Answer in the language of the question.\n"
     "Return JSON: answer; sources: 1-4 short labels (at most 5 words) of the snapshot facts you used, "
     "e.g. \"ST-038 · 4 stops\", \"OEE by weekday\"; followups: 2-3 short next questions the user "
@@ -113,6 +119,14 @@ def _losses(ctx) -> list[dict]:
             out.append({"code": code, "type": "defect", "description": rows["Popis_EN"].iloc[0],
                         "loss_pcs": round(float(rows["NOK_ks"].sum()), 1)})
     return sorted(out, key=lambda item: item["loss_pcs"], reverse=True)
+
+
+def _when(expected_at: str, today) -> str:
+    """"today 09:08", "tomorrow 08:08", "Mon 30 Nov 11:08" — so "tomorrow" is never guessed."""
+    at = pd.Timestamp(expected_at)
+    days = (at.normalize() - today).days
+    day = "today" if days == 0 else "tomorrow" if days == 1 else f"{at:%a %d %b}"
+    return f"{day} {at:%H:%M}"
 
 
 def _gain(data, remove: list[str]) -> dict:
@@ -197,8 +211,9 @@ def build_snapshot(data, code: str | None = None, role: str | None = None,
         "oee_by_weekday": _by_weekday(ctx),
         "losses": _losses(ctx)[:10],
         "insights": compact,
-        "upcoming_stops": [{k: u[k] for k in ("code", "title", "expected_at", "confidence", "risk_pcs",
-                                              "evidence")} | {"fix": fixes.get(u["code"])}
+        "upcoming_stops": [{"when": _when(u["expected_at"], ctx.today)}
+                           | {k: u[k] for k in ("code", "title", "expected_at", "confidence", "risk_pcs",
+                                                "evidence")} | {"fix": fixes.get(u["code"])}
                            for u in upcoming(data)],
         "what_if": gains,
         "open_actions": [{k: a.get(k) for k in ("title", "owner", "status")}
@@ -231,29 +246,56 @@ def _parse(text: str) -> dict:
             "followups": strings(raw.get("followups"), MAX_FOLLOWUPS)}
 
 
-def _call(key: str, body: dict) -> str:
-    """The model's text. A busy service (429 / 5xx) is tried once more while the 10 s budget lasts."""
+def _models() -> list[str]:
+    """Primary model, then the fallback one (GEMINI_FALLBACK_MODEL="" turns it off)."""
+    primary = os.environ.get("GEMINI_MODEL", "").strip() or DEFAULT_MODEL
+    fallback = os.environ.get("GEMINI_FALLBACK_MODEL", FALLBACK_MODEL).strip()
+    return [primary] + ([fallback] if fallback and fallback != primary else [])
+
+
+def _request(model: str, key: str, body: dict, timeout: float) -> str:
     request = urllib.request.Request(
-        API_URL.format(model=os.environ.get("GEMINI_MODEL", "").strip() or DEFAULT_MODEL),
-        data=json.dumps(body).encode("utf-8"),
+        API_URL.format(model=model), data=json.dumps(body).encode("utf-8"),
         headers={"Content-Type": "application/json", "x-goog-api-key": key},
     )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            reply = json.load(response)
+        parts = reply["candidates"][0]["content"]["parts"]
+        return "".join(part.get("text", "") for part in parts if not part.get("thought"))
+    except urllib.error.HTTPError as error:
+        raise ChatUnavailable(f"{model}: LLM service returned HTTP {error.code}") from error
+    except (OSError, KeyError, IndexError, TypeError, ValueError) as error:
+        raise ChatUnavailable(f"{model}: LLM service did not answer ({type(error).__name__})") from error
+
+
+def _call(key: str, body: dict) -> str:
+    """The first answer within TIMEOUT_S. The fallback model starts as soon as the primary fails,
+    or runs alongside it once the primary has taken HEDGE_S without answering."""
+    models = _models()
     deadline = time.monotonic() + TIMEOUT_S
-    for attempt in range(2):
-        try:
-            with urllib.request.urlopen(request, timeout=max(1.0, deadline - time.monotonic())) as response:
-                reply = json.load(response)
-            parts = reply["candidates"][0]["content"]["parts"]
-            return "".join(part.get("text", "") for part in parts if not part.get("thought"))
-        except urllib.error.HTTPError as error:
-            busy = error.code == 429 or error.code >= 500
-            if attempt == 0 and busy and deadline - time.monotonic() > RETRY_MIN_S:
-                time.sleep(RETRY_PAUSE_S)
-                continue
-            raise ChatUnavailable(f"LLM service returned HTTP {error.code}") from error
-        except (OSError, KeyError, IndexError, TypeError, ValueError) as error:
-            raise ChatUnavailable(f"LLM service did not answer ({type(error).__name__})") from error
-    raise ChatUnavailable("LLM service did not answer")
+    pool = ThreadPoolExecutor(max_workers=len(models))
+    errors: list[ChatUnavailable] = []
+    try:
+        pending = {pool.submit(_request, models[0], key, body, TIMEOUT_S)}
+        waiting = models[1:]
+        while pending:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                break
+            done, pending = wait(pending, timeout=min(left, HEDGE_S) if waiting else left,
+                                 return_when=FIRST_COMPLETED)
+            for future in done:
+                try:
+                    return future.result()
+                except ChatUnavailable as error:
+                    errors.append(error)
+            if waiting and (not pending or not done):  # primary failed, or is slow
+                pending.add(pool.submit(_request, waiting.pop(0), key, body,
+                                        max(1.0, deadline - time.monotonic())))
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    raise errors[-1] if errors else ChatUnavailable(f"LLM did not answer within {TIMEOUT_S} s")
 
 
 def chat(question: str, data, history: list[dict] | None = None, code: str | None = None,
@@ -276,7 +318,10 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
     body = {
         "system_instruction": {"parts": [{"text": SYSTEM}]},
         "contents": contents,
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 600,
+        # Thinking counts against maxOutputTokens: keep it minimal and the limit roomy, so the JSON
+        # is never cut off (an 80-word answer is ~150 tokens).
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048,
+                             "thinkingConfig": {"thinkingLevel": "minimal"},
                              "responseMimeType": "application/json", "responseSchema": RESPONSE_SCHEMA},
     }
     result = _parse(_call(key, body))

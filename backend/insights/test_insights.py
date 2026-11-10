@@ -558,18 +558,68 @@ def test_chat_llm_failures_are_unavailable(ds, llm):
         chat("Why?", at(ds, "2026-11-25 09:20"))
 
 
-def test_chat_retries_a_busy_llm_once(ds, llm, monkeypatch):
+def _by_model(responses: dict, delays: dict | None = None):
+    """urlopen stand-in: reply (or raise) per model in the URL, optionally after a delay."""
+    import io
+    import time as clock
+    calls = []
+
+    def fake(request, timeout):
+        model = request.full_url.split("/models/")[1].split(":")[0]
+        calls.append(model)
+        clock.sleep((delays or {}).get(model, 0))
+        reply = responses[model]
+        if isinstance(reply, Exception):
+            raise reply
+        return io.BytesIO(json.dumps({"candidates": [{"content": {"parts": [{"text": reply}]}}]}).encode())
+
+    return fake, calls
+
+
+FALLBACK_REPLY = json.dumps({"answer": "From the fallback.", "sources": [], "followups": ["Next?"]})
+
+
+def test_chat_falls_back_when_the_primary_model_is_busy(ds, llm, monkeypatch):
     import urllib.error
-    replies = [urllib.error.HTTPError("u", 503, "Unavailable", {}, None), REPLY]
+    fake, calls = _by_model({"gemini-3.6-flash": urllib.error.HTTPError("u", 503, "Busy", {}, None),
+                             "gemini-3.5-flash-lite": FALLBACK_REPLY})
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    assert chat("Why?", at(ds, "2026-11-25 09:20"))["answer"] == "From the fallback."
+    assert calls == ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
 
-    def flaky(request, timeout):
-        llm.text = replies.pop(0)
-        return llm(request, timeout)
 
-    monkeypatch.setattr("urllib.request.urlopen", flaky)
-    monkeypatch.setattr("time.sleep", lambda s: None)
-    assert chat("Why?", at(ds, "2026-11-25 09:20"))["answer"].startswith("ST-038")
-    assert len(llm.calls) == 2
+def test_chat_races_the_fallback_against_a_slow_primary(ds, llm, monkeypatch):
+    import importlib
+    module = importlib.import_module("insights.chat")
+    monkeypatch.setattr(module, "HEDGE_S", 0.2)
+    fake, calls = _by_model({"gemini-3.6-flash": REPLY, "gemini-3.5-flash-lite": FALLBACK_REPLY},
+                            delays={"gemini-3.6-flash": 1.5})
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    import time
+    start = time.perf_counter()
+    assert chat("Why?", at(ds, "2026-11-25 09:20"))["answer"] == "From the fallback."
+    assert time.perf_counter() - start < 1.2
+    assert calls == ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+
+
+def test_chat_models_are_configurable(ds, llm, monkeypatch):
+    import urllib.error
+    monkeypatch.setenv("GEMINI_MODEL", "my-model")
+    monkeypatch.setenv("GEMINI_FALLBACK_MODEL", "")
+    fake, calls = _by_model({"my-model": urllib.error.HTTPError("u", 503, "Busy", {}, None)})
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    with pytest.raises(ChatUnavailable):
+        chat("Why?", at(ds, "2026-11-25 09:20"))
+    assert calls == ["my-model"]
+
+
+def test_chat_snapshot_labels_today_and_tomorrow(ds, llm):
+    chat("What should I prepare for tomorrow?", at(ds, "2026-11-25 08:30"))
+    when = [(u["code"], u["when"]) for u in llm.snapshot["upcoming_stops"]][:3]
+    assert when == [("ST-038", "today 09:08"), ("ST-047", "tomorrow 08:08"), ("ST-001", "Mon 30 Nov 11:08")]
+    body = llm.calls[0]["body"]
+    assert body["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+    assert body["generationConfig"]["maxOutputTokens"] >= 2048
 
 
 def test_chat_empty_question_does_not_call_the_llm(ds, llm):
