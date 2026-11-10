@@ -6,6 +6,8 @@ import { SideNav } from "@/components/layout/SideNav";
 import { Card } from "@/components/Card";
 import { StateView } from "@/components/Panel";
 import { useIsDesktop } from "@/lib/useMediaQuery";
+import { useRole } from "@/lib/role";
+import { RolePicker } from "@/components/RolePicker";
 import { cn } from "@/lib/utils";
 
 export const appTabs: TabItem[] = [
@@ -21,6 +23,10 @@ export const appTabs: TabItem[] = [
 export function AppShell() {
   const desktop = useIsDesktop();
   const onDetail = !!useMatch("/errors/:code");
+  const [role, setRole] = useRole();
+
+  // First visit on this phone: one tap to say who you are (no account, no password).
+  if (!role) return <RolePicker onPick={setRole} />;
 
   if (desktop) {
     return (

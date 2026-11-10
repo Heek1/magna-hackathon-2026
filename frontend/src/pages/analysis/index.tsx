@@ -10,6 +10,7 @@ import { RankRow } from "@/components/RankRow";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { toneText } from "@/lib/tone";
 import { cn } from "@/lib/utils";
+import { useRole } from "@/lib/role";
 import { KIND_OF, errorName, fmt, patternLabel } from "./model";
 import { Eyebrow, ScreenHeader, StateCard } from "./ui";
 
@@ -27,6 +28,7 @@ export default function TopErrorsPage() {
   const period = sim.data ? { to: sim.data.shift.date } : null;
   const losses = useLosses(period);
   const navigate = useNavigate();
+  const [role] = useRole();
   const open = (code: string) => navigate(`/errors/${encodeURIComponent(code)}${tab === "stop" ? "" : `?tab=${tab}`}`);
 
   const all = useMemo(() => losses.data ?? [], [losses.data]);
@@ -66,7 +68,7 @@ export default function TopErrorsPage() {
                 key={l.code + (l.device ?? "")}
                 rank={i + 2}
                 title={errorName(l)}
-                meta={metaLine(l)}
+                meta={l.fix?.owner_role === role ? `Yours · ${metaLine(l)}` : metaLine(l)}
                 value={l.loss_pcs}
                 ratio={l.loss_pcs / items[0].loss_pcs}
                 tone={tab}
@@ -84,6 +86,7 @@ function FixFirst({ item, kind, period, onOpen }: { item: Loss; kind: EventKind;
   const detail = useErrorDetail(item.code, period);
   const { createAction, data: actions } = useActions();
   const insights = useInsights();
+  const [role] = useRole();
   const [busy, setBusy] = useState(false);
   const pattern = detail.data ? patternLabel(detail.data) : null;
   const gain = detail.data?.gain_pp ?? item.loss_pp;
@@ -136,13 +139,16 @@ function FixFirst({ item, kind, period, onOpen }: { item: Loss; kind: EventKind;
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        {item.fix?.owner_role && <Chip>{item.fix.owner_role}</Chip>}
+        {item.fix?.owner_role && (
+          <Chip tone={item.fix.owner_role === role ? "speed" : "neutral"}>
+            {item.fix.owner_role === role ? "Your team" : item.fix.owner_role}
+          </Chip>
+        )}
         {gain > 0 && <Chip tone="fix">+{gain.toFixed(2)} pp OEE</Chip>}
-        <span className="flex-1" />
         <button
           onClick={assign}
           className={cn(
-            "inline-flex h-9 items-center gap-1.5 rounded-chip px-3.5 text-caption font-medium transition active:scale-95",
+            "ml-auto inline-flex h-9 items-center gap-1.5 rounded-chip px-3.5 text-caption font-medium transition active:scale-95",
             assigned ? "bg-status-fix-bg text-status-fix" : "bg-bg-ink text-white",
           )}
         >

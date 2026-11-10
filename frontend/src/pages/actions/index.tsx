@@ -9,6 +9,7 @@ import { Chip } from "@/components/Chip";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { useIsDesktop } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
+import { useRole } from "@/lib/role";
 import { KIND_OF } from "../analysis/model";
 import { ScreenHeader, StateCard } from "../analysis/ui";
 
@@ -33,6 +34,8 @@ export default function FixesPage() {
   const losses = useLosses(sim.data ? { to: sim.data.shift.date } : null);
   const desktop = useIsDesktop();
   const [tab, setTab] = useState<ActionStatus>("open");
+  const [role] = useRole();
+  const [scope, setScope] = useState<"mine" | "all">("mine");
 
   const rows = useMemo<Row[]>(() => {
     const byFix = new Map<string, NonNullable<typeof losses.data>[number]>();
@@ -53,12 +56,37 @@ export default function FixesPage() {
     });
   }, [actions.data, insights.data, losses.data]);
 
-  const count = (s: ActionStatus) => rows.filter((r) => r.action.status === s).length;
-  const sum = (done: boolean) => rows.filter((r) => (r.action.status === "done") === done).reduce((s, r) => s + (r.gainPcs ?? 0), 0);
+  const mineCount = rows.filter((r) => r.action.owner === role).length;
+  const shown = scope === "mine" && role ? rows.filter((r) => r.action.owner === role) : rows;
+  const count = (s: ActionStatus) => shown.filter((r) => r.action.status === s).length;
+  const sum = (done: boolean) => shown.filter((r) => (r.action.status === "done") === done).reduce((s, r) => s + (r.gainPcs ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-3.5 pb-4">
-      <ScreenHeader eyebrow={`${count("open") + count("in_progress")} ACTIVE · ${count("done")} DONE`} title="Fixes" />
+      <ScreenHeader
+        eyebrow={`${count("open") + count("in_progress")} ACTIVE · ${count("done")} DONE`}
+        title="Fixes"
+        right={
+          role ? (
+            <div className="mb-1 flex rounded-chip bg-[#E3E5EA] p-0.5" role="tablist" aria-label="Whose fixes">
+              {(["mine", "all"] as const).map((s) => (
+                <button
+                  key={s}
+                  role="tab"
+                  aria-selected={scope === s}
+                  onClick={() => setScope(s)}
+                  className={cn(
+                    "h-8 rounded-chip px-3 text-caption font-medium transition",
+                    scope === s ? "bg-bg-card text-text-primary shadow-card" : "text-text-secondary",
+                  )}
+                >
+                  {s === "mine" ? `Mine ${mineCount}` : `All ${rows.length}`}
+                </button>
+              ))}
+            </div>
+          ) : undefined
+        }
+      />
 
       <Card className="flex items-center gap-4 !bg-bg-ink text-white">
         <div className="flex-1">
@@ -76,8 +104,11 @@ export default function FixesPage() {
 
       {actions.data === undefined ? (
         <StateCard state={actions.error ? "error" : "loading"} error={actions.error} />
-      ) : rows.length === 0 ? (
-        <StateCard state="empty" empty="No fixes yet — assign one from Top errors" />
+      ) : shown.length === 0 ? (
+        <StateCard
+          state="empty"
+          empty={scope === "mine" && role && rows.length ? `Nothing assigned to ${role} yet` : "No fixes yet — assign one from Top errors"}
+        />
       ) : desktop ? (
         <div className="grid grid-cols-3 gap-4">
           {COLUMNS.map((c) => (
@@ -85,7 +116,7 @@ export default function FixesPage() {
               <h2 className="flex items-center gap-2 px-1 text-title-m">
                 {c.label} <span className="num text-num-s text-text-tertiary">{count(c.value)}</span>
               </h2>
-              <FixList rows={rows.filter((r) => r.action.status === c.value)} />
+              <FixList rows={shown.filter((r) => r.action.status === c.value)} />
             </section>
           ))}
         </div>
@@ -93,7 +124,7 @@ export default function FixesPage() {
         <>
           <SegmentedControl label="Status" value={tab} onChange={setTab} options={COLUMNS.map((c) => ({ value: c.value, label: `${c.label} ${count(c.value)}` }))} />
           <div className="flex flex-col gap-3">
-            <FixList rows={rows.filter((r) => r.action.status === tab)} />
+            <FixList rows={shown.filter((r) => r.action.status === tab)} />
           </div>
         </>
       )}
