@@ -40,3 +40,9 @@ def test_key_link_sets_cookie_and_strips_key():
     assert r.status_code == 303 and r.headers["location"] == "/errors/ST-038?tab=stop"
     assert "httponly" in r.headers["set-cookie"].lower()
     assert c.get("/api/state").status_code == 200  # cookie kept by the client
+
+
+def test_key_from_env_is_trimmed(monkeypatch):
+    # A value pasted with a trailing newline must still match the QR link.
+    c = make(" s3cret\r\n".strip())
+    assert c.get("/", params={"key": "s3cret"}, follow_redirects=False).status_code == 303
