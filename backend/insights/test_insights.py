@@ -229,35 +229,13 @@ def test_what_if_period(ds):
 
 # ---------- stage 2: chat ----------
 
-from .chat import ChatUnavailable, chat  # noqa: E402
+from .chat import ChatUnavailable, build_snapshot, chat, suggestions  # noqa: E402
 
 
 def test_chat_without_key_is_unavailable(ds, monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     with pytest.raises(ChatUnavailable):
         chat("Why?", whole(ds))
-
-
-def test_chat_sends_the_snapshot_and_returns_the_answer(ds, monkeypatch):
-    import io
-    sent = {}
-
-    def fake_urlopen(request, timeout):
-        sent["url"], sent["headers"] = request.full_url, dict(request.header_items())
-        sent["body"] = json.loads(request.data)
-        return io.BytesIO(json.dumps(
-            {"candidates": [{"content": {"parts": [{"text": " Camera, ST-038. "}]}}]}).encode())
-
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    answer = chat("Why are Wednesdays below target?", at(ds, "2026-11-25 08:30"))
-
-    assert answer == "Camera, ST-038."
-    assert "test-key" not in sent["url"] and sent["headers"]["X-goog-api-key"] == "test-key"
-    text = sent["body"]["contents"][0]["parts"][0]["text"]
-    assert "Why are Wednesdays below target?" in text
-    assert "ST-038" in text and "2026-11-25T09:08:00" in text  # the prediction is in the snapshot
-    assert "only from the JSON snapshot" in sent["body"]["system_instruction"]["parts"][0]["text"]
 
 
 def test_api_serves_what_if_and_chat_503(monkeypatch):
@@ -298,29 +276,6 @@ def test_what_if_speed_gain_is_capped_by_the_speed_loss(ds):
     everything = what_if(frames, speed + ["slow_hour_1", "ST-038", "ST-047", "ST-001", "ST-016",
                                           "ST-017", "ST-046", "Q-020", "Q-026", "Q-030", "Q-031"])
     assert everything["oee_after"] <= 1
-
-
-def test_chat_probe_with_an_empty_question_does_not_call_the_llm(ds, monkeypatch):
-    def no_call(*args, **kwargs):
-        raise AssertionError("LLM called")
-
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    monkeypatch.setattr("urllib.request.urlopen", no_call)
-    assert chat("", whole(ds)) == ""
-    assert chat("   ", whole(ds)) == ""
-
-
-def test_chat_answers_in_words_when_the_llm_fails(ds, monkeypatch):
-    import urllib.error
-
-    def rate_limited(request, timeout):
-        raise urllib.error.HTTPError(request.full_url, 429, "Too Many Requests", {}, None)
-
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    monkeypatch.setattr("urllib.request.urlopen", rate_limited)
-    assert "HTTP 429" in chat("Why?", whole(ds))
-    monkeypatch.setattr("urllib.request.urlopen", lambda request, timeout: (_ for _ in ()).throw(TimeoutError()))
-    assert "did not respond" in chat("Why?", whole(ds))
 
 
 # ---------- mobile app, stage 1: upcoming ----------
@@ -469,3 +424,256 @@ def test_pitch_numbers(ds):
     speed, downtime, scrap = run - produced, hours["Prestoj_min"].sum(), hours["NOK_ks"].sum()
     assert (lost, speed, downtime, scrap) == (1108, 579, 410, 119)
     assert [round(100 * part / lost, 1) for part in (speed, downtime, scrap)] == [52.3, 37.0, 10.7]
+
+
+# ---------- Ask AI: chat with history, focus code, role (fake LLM, no network) ----------
+
+class FakeLLM:
+    """Stands in for urllib.request.urlopen; records the request, replies with `text`."""
+
+    def __init__(self, text):
+        self.text, self.calls = text, []
+
+    def __call__(self, request, timeout):
+        import io
+        self.calls.append({"url": request.full_url, "headers": dict(request.header_items()),
+                           "body": json.loads(request.data), "timeout": timeout})
+        if isinstance(self.text, Exception):
+            raise self.text
+        return io.BytesIO(json.dumps({"candidates": [{"content": {"parts": [{"text": self.text}]}}]}).encode())
+
+    @property
+    def prompt(self):
+        return self.calls[-1]["body"]["contents"][-1]["parts"][0]["text"]
+
+    @property
+    def snapshot(self):
+        return json.loads(self.prompt.split("Snapshot:\n", 1)[1].split("\n\nQuestion: ", 1)[0])
+
+
+REPLY = json.dumps({"answer": "ST-038 stops the camera every Wednesday at 09:08.",
+                    "sources": ["ST-038 · 4 stops", "OEE by weekday", "", 7, "a", "b", "c"],
+                    "followups": ["And on Thursdays?", "Who fixes it?", "How much do we gain?", "4th"]})
+
+
+@pytest.fixture
+def llm(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(engine, "COUNTERMEASURES_PATH", Path(engine.__file__).with_name("countermeasures.json"))
+    fake = FakeLLM(REPLY)
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    return fake
+
+
+def test_chat_returns_answer_sources_followups(ds, llm):
+    result = chat("Why is OEE low on Wednesdays?", at(ds, "2026-11-25 09:20"))
+    assert result == {"answer": "ST-038 stops the camera every Wednesday at 09:08.",
+                      "sources": ["ST-038 · 4 stops", "OEE by weekday", "a", "b"],
+                      "followups": ["And on Thursdays?", "Who fixes it?", "How much do we gain?"]}
+    call = llm.calls[0]
+    assert "test-key" not in call["url"] and call["headers"]["X-goog-api-key"] == "test-key"
+    assert call["timeout"] == 10
+    assert call["body"]["generationConfig"]["responseMimeType"] == "application/json"
+    assert "only from the JSON" in call["body"]["system_instruction"]["parts"][0]["text"]
+    assert llm.prompt.endswith("Question: Why is OEE low on Wednesdays?")
+
+
+def test_chat_snapshot_has_weekdays_upcoming_gains_and_open_actions(ds, llm):
+    actions = [{"title": "Clean the camera light", "owner": "Maintenance", "status": "open"},
+               {"title": "Old one", "owner": "Quality", "status": "done"}]
+    chat("What should I prepare for tomorrow?", at(ds, "2026-11-25 09:20"), actions=actions)
+    snap = llm.snapshot
+    wednesday = next(d for d in snap["oee_by_weekday"] if d["weekday"] == "Wednesday")
+    assert wednesday["oee_pct"] == min(d["oee_pct"] for d in snap["oee_by_weekday"]) == 81.9
+    assert snap["upcoming_stops"][0]["code"] == "ST-047"
+    assert snap["upcoming_stops"][0]["expected_at"] == "2026-11-26T08:08:00"
+    assert snap["upcoming_stops"][0]["fix"]["owner_role"] == "Maintenance"
+    assert snap["open_actions"] == [{"title": "Clean the camera light", "owner": "Maintenance", "status": "open"}]
+    assert "focus_error" not in snap and snap["user_role"] is None
+
+
+def test_chat_snapshot_gains_match_what_if(ds, llm):
+    chat("How much do we gain?", at(ds, "2026-11-30 14:00"))
+    gains = {tuple(g["remove"]): g["gain_pp"] for g in llm.snapshot["what_if"]}
+    assert gains[("ST-038",)] == 1.0 and gains[("ST-047",)] == 0.6
+    assert gains[("ST-038", "ST-047")] == 1.59
+    assert gains[("slow_hour_1", "slow_hour_5")] == 1.14
+
+
+def test_chat_snapshot_with_focus_code(ds, llm):
+    chat("How much do we gain if we fix this?", at(ds, "2026-11-30 14:00"), code="ST-038")
+    focus = llm.snapshot["focus_error"]
+    assert focus["code"] == "ST-038" and focus["type"] == "stop" and focus["station"] == "Camera"
+    assert (focus["count"], focus["minutes"], focus["loss_pcs"]) == (4, 100.0, 100.0)
+    assert focus["when"] == [{"weekday": "Wednesday", "time": "09:08", "count": 4}]
+    assert focus["why"].startswith("Stops every Wednesday at 09:08 (4 of 4 weeks)")
+    assert focus["fix"]["owner_role"] == "Maintenance"
+    assert focus["gain_if_fixed"]["gain_pp"] == 1.0
+    assert focus["next_expected"]["expected_at"] == "2026-12-02T09:08:00"
+    # defect and speed codes work too; an unknown code is said to have no occurrences
+    for code, kind in (("Q-031", "defect"), ("microstop", "speed")):
+        chat("Why?", at(ds, "2026-11-30 14:00"), code=code)
+        assert llm.snapshot["focus_error"]["type"] == kind
+    chat("Why?", at(ds, "2026-11-30 14:00"), code="ST-999")
+    assert llm.snapshot["focus_error"] == {"code": "ST-999", "note": "no occurrences"}
+
+
+def test_chat_snapshot_with_role_puts_their_fixes_first(ds, llm):
+    chat("What should I do?", at(ds, "2026-11-25 09:20"), role="Team leader")
+    snap = llm.snapshot
+    assert snap["user_role"] == "Team leader"
+    owners = [i["fix"] and i["fix"]["owner_role"] for i in snap["insights"]]
+    first_other = next(n for n, o in enumerate(owners) if o != "Team leader")
+    assert owners[:first_other] and all(o == "Team leader" for o in owners[:first_other])
+    assert "Team leader" not in owners[first_other:]
+
+
+def test_chat_sends_the_last_six_turns(ds, llm):
+    history = [{"role": "user" if n % 2 == 0 else "assistant", "text": f"turn {n}"} for n in range(9)]
+    history.append({"role": "user", "text": "   "})
+    chat("and on Thursdays?", at(ds, "2026-11-25 09:20"), history=history)
+    contents = llm.calls[0]["body"]["contents"]
+    assert [(c["role"], c["parts"][0]["text"]) for c in contents[:-1]] == [
+        ("user", "turn 4"), ("model", "turn 5"), ("user", "turn 6"), ("model", "turn 7"), ("user", "turn 8")]
+    assert contents[-1]["parts"][0]["text"].endswith("Question: and on Thursdays?")
+
+
+def test_chat_parses_fenced_json_and_plain_text(ds, llm):
+    llm.text = "```json\n" + json.dumps({"answer": "Fine.", "sources": [], "followups": []}) + "\n```"
+    result = chat("How is today going?", at(ds, "2026-11-25 09:20"))
+    assert result["answer"] == "Fine." and 1 <= len(result["followups"]) <= 3
+    llm.text = "Not JSON at all."
+    assert chat("Why?", at(ds, "2026-11-25 09:20"))["answer"] == "Not JSON at all."
+
+
+def test_chat_llm_failures_are_unavailable(ds, llm):
+    import urllib.error
+    for error in (urllib.error.HTTPError("u", 429, "Too Many Requests", {}, None), TimeoutError(),
+                  urllib.error.URLError("down")):
+        llm.text = error
+        with pytest.raises(ChatUnavailable):
+            chat("Why?", at(ds, "2026-11-25 09:20"))
+    llm.text = json.dumps({"answer": "", "sources": [], "followups": []})
+    with pytest.raises(ChatUnavailable):
+        chat("Why?", at(ds, "2026-11-25 09:20"))
+
+
+def _by_model(responses: dict, delays: dict | None = None):
+    """urlopen stand-in: reply (or raise) per model in the URL, optionally after a delay."""
+    import io
+    import time as clock
+    calls = []
+
+    def fake(request, timeout):
+        model = request.full_url.split("/models/")[1].split(":")[0]
+        calls.append(model)
+        clock.sleep((delays or {}).get(model, 0))
+        reply = responses[model]
+        if isinstance(reply, Exception):
+            raise reply
+        return io.BytesIO(json.dumps({"candidates": [{"content": {"parts": [{"text": reply}]}}]}).encode())
+
+    return fake, calls
+
+
+FALLBACK_REPLY = json.dumps({"answer": "From the fallback.", "sources": [], "followups": ["Next?"]})
+
+
+def test_chat_falls_back_when_the_primary_model_is_busy(ds, llm, monkeypatch):
+    import urllib.error
+    fake, calls = _by_model({"gemini-3.6-flash": urllib.error.HTTPError("u", 503, "Busy", {}, None),
+                             "gemini-3.5-flash-lite": FALLBACK_REPLY})
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    assert chat("Why?", at(ds, "2026-11-25 09:20"))["answer"] == "From the fallback."
+    assert calls == ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+
+
+def test_chat_races_the_fallback_against_a_slow_primary(ds, llm, monkeypatch):
+    import importlib
+    module = importlib.import_module("insights.chat")
+    monkeypatch.setattr(module, "HEDGE_S", 0.2)
+    fake, calls = _by_model({"gemini-3.6-flash": REPLY, "gemini-3.5-flash-lite": FALLBACK_REPLY},
+                            delays={"gemini-3.6-flash": 1.5})
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    import time
+    start = time.perf_counter()
+    assert chat("Why?", at(ds, "2026-11-25 09:20"))["answer"] == "From the fallback."
+    assert time.perf_counter() - start < 1.2
+    assert calls == ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+
+
+def test_chat_models_are_configurable(ds, llm, monkeypatch):
+    import urllib.error
+    monkeypatch.setenv("GEMINI_MODEL", "my-model")
+    monkeypatch.setenv("GEMINI_FALLBACK_MODEL", "")
+    fake, calls = _by_model({"my-model": urllib.error.HTTPError("u", 503, "Busy", {}, None)})
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    with pytest.raises(ChatUnavailable):
+        chat("Why?", at(ds, "2026-11-25 09:20"))
+    assert calls == ["my-model"]
+
+
+def test_chat_snapshot_labels_today_and_tomorrow(ds, llm):
+    chat("What should I prepare for tomorrow?", at(ds, "2026-11-25 08:30"))
+    when = [(u["code"], u["when"]) for u in llm.snapshot["upcoming_stops"]][:3]
+    assert when == [("ST-038", "today 09:08"), ("ST-047", "tomorrow 08:08"), ("ST-001", "Mon 30 Nov 11:08")]
+    body = llm.calls[0]["body"]
+    assert body["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+    assert body["generationConfig"]["maxOutputTokens"] >= 2048
+
+
+def test_chat_empty_question_does_not_call_the_llm(ds, llm):
+    result = chat("  ", at(ds, "2026-11-25 09:20"))
+    assert result["answer"] == "" and result["followups"] and not llm.calls
+
+
+def test_suggestions(ds, monkeypatch):
+    frames = at(ds, "2026-11-25 09:20")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(ChatUnavailable):
+        suggestions(frames)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    assert suggestions(frames, role="Maintenance") == [
+        "Why is OEE low on Wednesdays?", "What should Maintenance prepare for tomorrow?",
+        "Which error costs us the most?", "How is today's shift going?"]
+    assert suggestions(frames, code="ST-038") == [
+        "Why does ST-038 happen?", "How much do we gain if we fix ST-038?",
+        "When is ST-038 expected next?", "What should we do about ST-038?"]
+    assert len(suggestions(frames, code="Q-031")) == 3
+    assert suggestions(at(ds, "2026-11-03 10:00"))[0] == "What should we prepare for tomorrow?"
+
+
+def test_chat_snapshot_is_small_and_fast(ds):
+    import time
+    frames = at(ds, "2026-11-30 14:00")
+    start = time.perf_counter()
+    snap = build_snapshot(frames, code="ST-038", role="Maintenance")
+    assert time.perf_counter() - start < 1.0
+    assert len(json.dumps(snap, separators=(",", ":"), default=str)) < 9000
+
+
+def test_api_chat_routes(ds, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    client.post("/api/sim/control", json={"paused": True, "jump_to": "2026-11-25T09:20:00"})
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    assert client.get("/api/chat/suggestions").status_code == 503
+    assert client.post("/api/chat", json={"question": "Why?"}).status_code == 503
+
+    fake = FakeLLM(REPLY)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    r = client.get("/api/chat/suggestions", params={"code": "ST-038", "role": "Maintenance"})
+    assert r.status_code == 200 and r.json()[0] == "Why does ST-038 happen?"
+    r = client.post("/api/chat", json={"question": "Why?", "code": "ST-038", "role": "Maintenance",
+                                       "history": [{"role": "assistant", "text": "Hi"}]})
+    assert r.status_code == 200 and set(r.json()) == {"answer", "sources", "followups"}
+    assert fake.snapshot["focus_error"]["code"] == "ST-038" and fake.snapshot["user_role"] == "Maintenance"
+    bad = client.post("/api/chat", json={"question": "x", "history": [{"role": "bot", "text": "x"}]})
+    assert bad.status_code == 422
+
+    fake.text = TimeoutError()  # the LLM times out: 503, never 500
+    assert client.post("/api/chat", json={"question": "Why?"}).status_code == 503

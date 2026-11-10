@@ -8,6 +8,7 @@ import { EventRow } from "@/components/EventRow";
 import { OeeRing } from "@/components/OeeRing";
 import { StateView } from "@/components/Panel";
 import { SimSettings } from "@/components/SimSettings";
+import { AskAiButton } from "@/components/ask/AskAiButton";
 import { StatusHero } from "@/components/StatusHero";
 import { dayLabel, greeting, hhmm, parseTime, pcs } from "@/lib/format";
 import { CalendarClock, ChevronDown } from "lucide-react";
@@ -73,6 +74,7 @@ function Header({ date }: { date: Date | null }) {
       </div>
       <div className="mt-[22px] flex items-center gap-2">
         {chip}
+        <AskAiButton />
         <SimSettings className="lg:hidden" />
       </div>
     </header>

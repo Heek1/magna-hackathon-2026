@@ -7,7 +7,7 @@ import os
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -171,15 +171,34 @@ def post_whatif(body: WhatIfIn):
     return insights_bridge.whatif(sim.snapshot().as_frames(), body.remove, body.from_, body.to)
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str = Field(max_length=4000)
+
+
 class ChatIn(BaseModel):
-    question: str
+    question: str = Field(max_length=1000)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=50)
+    code: str | None = Field(None, max_length=32)
+    role: str | None = Field(None, max_length=40)
 
 
 @app.post("/api/chat")
 def post_chat(body: ChatIn):
     try:
-        return {"answer": insights_bridge.answer(body.question, sim.snapshot().as_frames())}
-    except Exception as exc:  # no LLM key or chat not available
+        return insights_bridge.answer(
+            body.question, sim.snapshot().as_frames(), history=[t.model_dump() for t in body.history],
+            code=body.code, role=body.role, actions=actions.list())
+    except Exception as exc:  # no LLM key, LLM failed or timed out: never a 500
+        raise HTTPException(503, f"Chat unavailable: {exc}") from exc
+
+
+@app.get("/api/chat/suggestions")
+def get_chat_suggestions(code: str | None = Query(None, max_length=32),
+                         role: str | None = Query(None, max_length=40)):
+    try:
+        return insights_bridge.chat_suggestions(sim.snapshot().as_frames(), code, role)
+    except Exception as exc:  # no LLM key: the app hides "Ask AI"
         raise HTTPException(503, f"Chat unavailable: {exc}") from exc
 
 
