@@ -12,7 +12,10 @@ export interface DowntimeBannerProps {
   recommendation?: string;
 }
 
-/** Full-width alarm while the line is stopped. The only element that pulses. */
+/**
+ * Full-width alarm while the line is stopped — the loudest thing on screen and the only one that pulses.
+ * Left: what stopped. Middle: what to do. Right: how long and how much it costs, readable from 3 m.
+ */
 export function DowntimeBanner({ downtime, recommendation }: DowntimeBannerProps) {
   return (
     <AnimatePresence initial={false}>
@@ -26,28 +29,33 @@ export function DowntimeBanner({ downtime, recommendation }: DowntimeBannerProps
           role="alert"
           className="overflow-hidden"
         >
-          <div className="relative flex items-center gap-6 rounded border border-accent bg-accent/10 px-5 py-3">
-            <span className="absolute inset-0 animate-stop-pulse rounded border-2 border-accent" aria-hidden />
-            <div className="flex items-center gap-3">
-              <OctagonAlert className="h-8 w-8 animate-stop-pulse text-accent" strokeWidth={2.25} aria-hidden />
-              <div className="flex flex-col">
+          <div className="relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-8 overflow-hidden rounded border border-accent/60 bg-accent/[0.08] py-4 pl-7 pr-6">
+            <span className="absolute inset-y-0 left-0 w-1.5 animate-stop-pulse bg-accent" aria-hidden />
+            <span className="absolute inset-0 animate-stop-pulse rounded border border-accent" aria-hidden />
+
+            <div className="flex items-center gap-4">
+              <OctagonAlert className="h-11 w-11 shrink-0 text-accent" strokeWidth={2} aria-hidden />
+              <div className="flex flex-col gap-1">
                 <span className="label text-accent">Line stopped</span>
-                <span className="text-lg font-semibold">
-                  <span className="num">{downtime.code}</span>
-                  <span className="mx-2 text-dim">·</span>
-                  {downtime.device}
+                <span className="flex items-baseline gap-3 leading-none">
+                  <span className="num text-num-md font-semibold text-text">{downtime.code}</span>
+                  <span className="text-xl font-medium text-text/90">{downtime.device}</span>
                 </span>
               </div>
             </div>
-            <p className="min-w-0 flex-1 text-base text-text/90">
-              {downtime.description}
-              {recommendation && (
-                <span className="mt-0.5 block truncate text-sm text-muted">
-                  <span className="label mr-2">Do now</span>
+
+            <div className="flex min-w-0 flex-col gap-1.5 border-l border-accent/30 pl-8">
+              <p className="truncate text-lg font-medium text-text">{downtime.description}</p>
+              {recommendation ? (
+                <p className="line-clamp-2 text-sm leading-snug text-muted">
+                  <span className="mr-2 font-semibold text-text/90">Do now:</span>
                   {recommendation}
-                </span>
+                </p>
+              ) : (
+                <p className="text-sm text-muted">No countermeasure on file for this code yet.</p>
               )}
-            </p>
+            </div>
+
             <DowntimeStats since={downtime.since} />
           </div>
         </motion.div>
@@ -60,16 +68,17 @@ function DowntimeStats({ since }: { since: string }) {
   const { now } = useSimClock();
   const lostPcs = Math.max(0, Math.floor((now.getTime() - parseTime(since).getTime()) / 60000)); // 60 s cycle
   return (
-    <div className="flex items-end gap-8">
-      <div className="flex flex-col items-end">
-        <span className="label">Since {hhmm(parseTime(since))}</span>
-        <Elapsed since={since} className="text-num-lg font-medium text-text" />
+    <div className="flex items-stretch gap-6">
+      <div className="flex flex-col items-end justify-between gap-1">
+        <span className="label">Stopped since {hhmm(parseTime(since))}</span>
+        <Elapsed since={since} className="text-num-lg font-medium leading-none text-text" />
       </div>
-      <div className="flex flex-col items-end">
-        <span className="label">Lost</span>
-        <span className="num text-num-lg font-medium text-accent">
+      <div className="w-px bg-accent/30" aria-hidden />
+      <div className="flex flex-col items-end justify-between gap-1">
+        <span className="label">Lost so far</span>
+        <span className="num text-num-lg font-medium leading-none text-accent">
           {lostPcs}
-          <span className="ml-1 text-base text-muted">pcs</span>
+          <span className="ml-1.5 text-base font-normal text-muted">pcs</span>
         </span>
       </div>
     </div>

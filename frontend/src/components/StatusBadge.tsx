@@ -25,7 +25,7 @@ export function StatusBadge({ status, children, size = "sm", className }: Status
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded border font-medium uppercase",
-        size === "sm" ? "h-6 px-2 text-label" : "h-7 px-2.5 text-xs tracking-wider",
+        size === "sm" ? "h-6 px-2 text-xs" : "h-7 px-2.5 text-sm",
         tone,
         className,
       )}
