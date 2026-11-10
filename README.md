@@ -33,3 +33,16 @@ git clone https://github.com/Heek1/magna-hackathon-2026.git
 cd magna-hackathon-2026
 git checkout <your-branch>
 ```
+
+## Public demo (one container)
+
+The root `Dockerfile` builds the phone app and serves it together with the API on one port, so the
+demo has a single public URL that opens on any phone.
+
+```bash
+docker build -t oee-engine .
+docker run -p 8000:8000 oee-engine      # http://localhost:8000
+```
+
+Hosting platforms set `PORT`; the container listens on it. Actions are kept in `/app/state/actions.db`
+inside the container (reset on redeploy).
