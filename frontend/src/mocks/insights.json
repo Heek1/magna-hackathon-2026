@@ -1,14 +1,121 @@
 [
   {
-    "id": "stub-1",
+    "id": "recurring_stop:ST-038:wed:4",
     "kind": "recurring_stop",
     "severity": "high",
-    "title": "Stub insight (backend/insights not implemented yet)",
-    "evidence": "Placeholder until get_insights() exists.",
-    "code": null,
-    "loss_pcs": 0,
-    "loss_pp": 0,
+    "title": "ST-038 Camera light module interrupted operation repeats every Wednesday in shift hour 4",
+    "evidence": "4 of 4 Wednesdays (Nov 4, 11, 18, 25) at 09:08 on Kamera, typically 25 min: 87 min of downtime = 87 pcs lost, 1.13 pp of OEE over the period.",
+    "code": "ST-038",
+    "loss_pcs": 87.0,
+    "loss_pp": 1.13,
     "expected_at": null,
-    "recommendation": null
+    "recommendation": {
+      "action": "Inspect, clean, and test camera lighting module intensity during autonomous maintenance at shift start.",
+      "method": "Autonomous maintenance",
+      "owner_role": "Maintenance",
+      "expected_gain_pcs": 87.0
+    }
+  },
+  {
+    "id": "slow_hour:1",
+    "kind": "slow_hour",
+    "severity": "high",
+    "title": "Shift hour 1 (06:00–07:00) is consistently slow: 88.5% performance vs 94.5%",
+    "evidence": "Performance 88.5% vs 94.5% median of the other hours, below the line median on 18 of 18 days (Nov 2 – Nov 25). Microstops 2.1 s per run minute vs 1.2, slowdown 4.4 vs 1.9. 53 pcs lost, 0.69 pp of OEE over the period.",
+    "code": "slow_hour_1",
+    "loss_pcs": 52.6,
+    "loss_pp": 0.69,
+    "expected_at": null,
+    "recommendation": {
+      "action": "Complete autonomous maintenance checks and stage all necessary components prior to shift kickoff.",
+      "method": "Autonomous maintenance",
+      "owner_role": "Team leader",
+      "expected_gain_pcs": 52.6
+    }
+  },
+  {
+    "id": "recurring_stop:ST-047:thu:3",
+    "kind": "recurring_stop",
+    "severity": "high",
+    "title": "ST-047 Test nest allows air leakage repeats every Thursday in shift hour 3",
+    "evidence": "3 of 3 Thursdays (Nov 5, 12, 19) at 08:08 on Leak test, 15 min each: 45 min of downtime = 45 pcs lost, 0.59 pp of OEE over the period.",
+    "code": "ST-047",
+    "loss_pcs": 45.0,
+    "loss_pp": 0.59,
+    "expected_at": null,
+    "recommendation": {
+      "action": "Replace worn test nest sealing gaskets on a weekly preventive maintenance schedule.",
+      "method": "Preventive maintenance",
+      "owner_role": "Maintenance",
+      "expected_gain_pcs": 45.0
+    }
+  },
+  {
+    "id": "slow_hour:5",
+    "kind": "slow_hour",
+    "severity": "medium",
+    "title": "Shift hour 5 (10:00–11:00) is consistently slow: 87.1% performance vs 94.5%",
+    "evidence": "Performance 87.1% vs 94.5% median of the other hours, below the line median on 17 of 17 days (Nov 2 – Nov 24). Microstops 2.8 s per run minute vs 1.2, slowdown 4.2 vs 2.1. 38 pcs lost, 0.49 pp of OEE over the period.",
+    "code": "slow_hour_5",
+    "loss_pcs": 37.5,
+    "loss_pp": 0.49,
+    "expected_at": null,
+    "recommendation": {
+      "action": "Ensure assembly line carriers and buffer materials are staged before the break concludes to enable immediate standard ramp-up.",
+      "method": "Standard work",
+      "owner_role": "Team leader",
+      "expected_gain_pcs": 37.5
+    }
+  },
+  {
+    "id": "quality:pareto:Q-031",
+    "kind": "quality",
+    "severity": "medium",
+    "title": "Q-031 Product circuit allows fluid escape: #1 scrap cause, 33% of all NOK",
+    "evidence": "32 of 98 NOK pcs (32.7%, cumulative 32.7%) over 18 shifts, Nov 2 – Nov 25; 0.42 pp of OEE over the period.",
+    "code": "Q-031",
+    "loss_pcs": 32.0,
+    "loss_pp": 0.42,
+    "expected_at": null,
+    "recommendation": {
+      "action": "Conduct 5-Why root cause analysis on component sealing surfaces and supplier gasket tolerances.",
+      "method": "5-Why",
+      "owner_role": "Quality",
+      "expected_gain_pcs": 32.0
+    }
+  },
+  {
+    "id": "quality:pareto:Q-026",
+    "kind": "quality",
+    "severity": "medium",
+    "title": "Q-026 Threaded joint lacks required tightening: #2 scrap cause, 24% of all NOK",
+    "evidence": "24 of 98 NOK pcs (24.5%, cumulative 57.1%) over 18 shifts, Nov 2 – Nov 25; 0.31 pp of OEE over the period.",
+    "code": "Q-026",
+    "loss_pcs": 24.0,
+    "loss_pp": 0.31,
+    "expected_at": null,
+    "recommendation": {
+      "action": "Calibrate and verify electric screwdriver torque and angle settings at the start of every shift.",
+      "method": "Calibration",
+      "owner_role": "Maintenance",
+      "expected_gain_pcs": 24.0
+    }
+  },
+  {
+    "id": "quality:pareto:Q-020",
+    "kind": "quality",
+    "severity": "medium",
+    "title": "Q-020 Press-fit element short of target position: #3 scrap cause, 22% of all NOK",
+    "evidence": "22 of 98 NOK pcs (22.4%, cumulative 79.6%) over 18 shifts, Nov 2 – Nov 25; 0.29 pp of OEE over the period.",
+    "code": "Q-020",
+    "loss_pcs": 22.0,
+    "loss_pp": 0.29,
+    "expected_at": null,
+    "recommendation": {
+      "action": "Implement continuous press force and stroke position monitoring with an automated SPC alarm.",
+      "method": "SPC",
+      "owner_role": "Process engineer",
+      "expected_gain_pcs": 22.0
+    }
   }
 ]

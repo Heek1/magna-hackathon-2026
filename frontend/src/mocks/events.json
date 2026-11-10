@@ -1,0 +1,72 @@
+[
+  {
+    "time": "2026-11-25T09:08:00",
+    "kind": "stop",
+    "code": "ST-038",
+    "title": "ST-038 Kamera",
+    "detail": "Camera light module interrupted operation",
+    "value": 12.0,
+    "unit": "min",
+    "active": true
+  },
+  {
+    "time": "2026-11-25T08:00:00",
+    "kind": "defect",
+    "code": "Q-031",
+    "title": "Q-031",
+    "detail": "Product circuit allows fluid escape",
+    "value": 1.0,
+    "unit": "pcs",
+    "active": false
+  },
+  {
+    "time": "2026-11-25T08:00:00",
+    "kind": "speed",
+    "code": "microstop",
+    "title": "Speed loss",
+    "detail": "Microstops 2.9 · Retests 0.7 · Slowdown 2.4",
+    "value": 6.0,
+    "unit": "pcs",
+    "active": false
+  },
+  {
+    "time": "2026-11-25T07:08:00",
+    "kind": "stop",
+    "code": "ST-046",
+    "title": "ST-046 Leak test",
+    "detail": "Leak measurement unit interrupted test",
+    "value": 13.0,
+    "unit": "min",
+    "active": false
+  },
+  {
+    "time": "2026-11-25T07:00:00",
+    "kind": "defect",
+    "code": "Q-030",
+    "title": "Q-030",
+    "detail": "Product failed image-based check",
+    "value": 1.0,
+    "unit": "pcs",
+    "active": false
+  },
+  {
+    "time": "2026-11-25T07:00:00",
+    "kind": "speed",
+    "code": "slowdown",
+    "title": "Speed loss",
+    "detail": "Microstops 1.1 · Retests 0.7 · Slowdown 1.2",
+    "value": 3.0,
+    "unit": "pcs",
+    "active": false
+  },
+  {
+    "time": "2026-11-25T06:00:00",
+    "kind": "speed",
+    "code": "slowdown",
+    "title": "Speed loss",
+    "detail": "Microstops 2.0 · Slowdown 6.0",
+    "value": 8.0,
+    "unit": "pcs",
+    "active": false
+  }
+]
