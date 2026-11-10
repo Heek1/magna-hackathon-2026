@@ -1,60 +1,39 @@
 import { NavLink } from "react-router-dom";
-import { Activity, ChartColumn, ListChecks, type LucideIcon } from "lucide-react";
+import type { TabItem } from "@/components/TabBar";
 import { cn } from "@/lib/utils";
+import { SimSettings } from "@/components/SimSettings";
 
-export interface NavItem {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-  /** False while the page is not built yet. */
-  available: boolean;
-}
-
-export const navIcons = { live: Activity, analysis: ChartColumn, actions: ListChecks };
-
-/** Left rail: product mark + three sections. */
-export function SideNav({ items }: { items: NavItem[] }) {
+/** Left navigation for desktop and projector (≥ 1024 px); the same items as the phone TabBar. */
+export function SideNav({ items, className }: { items: TabItem[]; className?: string }) {
   return (
-    <nav className="flex w-56 shrink-0 flex-col border-r bg-bg">
-      <div className="flex h-[72px] items-center gap-2.5 border-b px-5">
-        <span className="h-3 w-3 bg-accent" aria-hidden />
-        <div className="flex flex-col leading-tight">
-          <span className="num text-sm font-semibold tracking-wide text-text">OEE ENGINE</span>
-          <span className="label text-dim">Line L01 · E-drive</span>
+    <nav aria-label="Main" className={cn("flex w-60 shrink-0 flex-col gap-6 px-4 py-6", className)}>
+      <div className="flex items-center gap-2.5 px-3">
+        <span className="h-3 w-3 rounded-sm bg-status-stop" aria-hidden />
+        <div className="flex flex-col">
+          <span className="text-title-m text-text-primary">OEE Engine</span>
+          <span className="text-caption text-text-tertiary">Line L01 · E-drive</span>
         </div>
       </div>
-      <ul className="flex flex-col gap-1 p-3">
-        {items.map(({ to, label, icon: Icon, available }) => (
+      <ul className="flex flex-col gap-1">
+        {items.map(({ to, label, icon: Icon }) => (
           <li key={to}>
-            {available ? (
-              <NavLink
-                to={to}
-                end={to === "/"}
-                className={({ isActive }) =>
-                  cn(
-                    "relative flex h-11 items-center gap-3 rounded px-3 text-sm font-medium transition-colors",
-                    isActive ? "bg-surface-2 text-text" : "text-muted hover:bg-surface hover:text-text",
-                  )
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    {isActive && <span className="absolute inset-y-2 left-0 w-0.5 bg-text" aria-hidden />}
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </>
-                )}
-              </NavLink>
-            ) : (
-              <span className="flex h-11 cursor-not-allowed items-center gap-3 rounded px-3 text-sm text-dim">
-                <Icon className="h-4 w-4" />
-                {label}
-                <span className="label ml-auto text-dim">Soon</span>
-              </span>
-            )}
+            <NavLink
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) =>
+                cn(
+                  "flex h-11 items-center gap-3 rounded-badge px-3 text-body font-medium transition-colors",
+                  isActive ? "bg-bg-card text-text-primary shadow-card" : "text-text-secondary hover:text-text-primary",
+                )
+              }
+            >
+              <Icon className="h-5 w-5" aria-hidden />
+              {label}
+            </NavLink>
           </li>
         ))}
       </ul>
+      <SimSettings withLabel className="mt-auto w-full" />
     </nav>
   );
 }

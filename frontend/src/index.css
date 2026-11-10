@@ -29,7 +29,8 @@
     @apply font-mono tabular-nums;
   }
   /* Overline (Figma text style): 11/14 SemiBold uppercase, +6 % tracking, tertiary. */
-  .overline {
+  /* (Not `.overline`: that is Tailwind's text-decoration utility.) */
+  .overline-label {
     @apply font-sans text-overline uppercase text-text-tertiary;
   }
   /* Deprecated alias of .overline for older pages. */

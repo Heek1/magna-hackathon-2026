@@ -1,34 +1,48 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Check, Clock, Plus } from "lucide-react";
-import { useActions, useInsights } from "@/api/hooks";
+import { Check, Clock, Lightbulb, Plus } from "lucide-react";
+import type { ErrorDetail as Detail } from "@/types/api";
+import { useActions, useErrorDetail, useInsights, useSimState } from "@/api/hooks";
+import { BottomBar } from "@/components/BottomBar";
+import { Card, CardHeader } from "@/components/Card";
+import { Chip } from "@/components/Chip";
+import { PatternGrid } from "@/components/PatternGrid";
+import { useIsDesktop } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
-import { KIND_LABEL, deviceName, fixSteps, patternNote, useErrorDetail } from "./model";
-import { Card, Chip, IconButton, Overline, PatternGrid, PrimaryButton, StatCard, StateCard } from "./ui";
+import { KIND_LABEL, deviceName, fixSteps, fmt, patternNote } from "./model";
+import { BackButton, Eyebrow, StatCard, StateCard } from "./ui";
 
-/** 03 Error detail: when it happens and how to fix it. */
-export default function ErrorDetail({ code, onBack, embedded = false }: { code: string; onBack?: () => void; embedded?: boolean }) {
-  const detail = useErrorDetail(code);
+/** `why` comes from backend/insights explain(); optional until every backend has it. */
+type DetailWithWhy = Detail & { why?: string | null };
+
+/** 03 Error detail (/errors/:code) — when it happens and how to fix it. */
+export default function ErrorDetailPage() {
+  const { code = "" } = useParams();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const desktop = useIsDesktop();
+  const sim = useSimState();
+  const detail = useErrorDetail(code || null, sim.data ? { to: sim.data.shift.date } : undefined);
   const { createAction, data: actions } = useActions();
   const insights = useInsights();
-  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const d = detail.data;
-  const owner = d?.fix?.owner_role ?? "team leader";
+  const d = detail.data as DetailWithWhy | undefined;
+  const owner = d?.fix?.owner_role ?? "Team leader";
   const title = d?.fix?.action ?? `Remove ${code}`;
   const already = !!actions?.some((a) => a.title === title && a.status !== "done");
+  const back = () => navigate(`/errors${params.get("tab") ? `?tab=${params.get("tab")}` : ""}`);
 
   async function create() {
-    if (!d) return;
+    if (!d || busy) return;
     setBusy(true);
     setErr(null);
     try {
       const insight = insights.data?.find((i) => i.code === code);
       await createAction({ title, owner: d.fix?.owner_role ?? null, insight_id: insight?.id ?? null });
-      navigate("/actions");
+      navigate("/fixes");
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -37,10 +51,10 @@ export default function ErrorDetail({ code, onBack, embedded = false }: { code: 
   }
 
   return (
-    <div className={cn("flex min-h-full flex-col", !embedded && "pb-28")}>
-      <div className="flex-1 space-y-3">
+    <div className="flex min-h-full flex-col">
+      <div className="flex flex-1 flex-col gap-3 pb-4">
         <div className="flex items-center gap-3">
-          {onBack && <IconButton label="Back to top errors" onClick={onBack} />}
+          {!desktop && <BackButton onClick={back} />}
           <span className="flex-1" />
           {d && (
             <Chip tone={d.kind}>
@@ -52,15 +66,13 @@ export default function ErrorDetail({ code, onBack, embedded = false }: { code: 
 
         <div className="px-1">
           <h1 className="text-display tracking-tight">{code}</h1>
-          <p className="mt-1 text-body text-text-secondary">{d?.description ?? " "}</p>
+          <p className="mt-1 min-h-5 text-body text-text-secondary">{d?.description}</p>
         </div>
 
-        {detail.error && !d ? (
-          <StateCard state="error" error={detail.error} />
-        ) : !d ? (
-          <StateCard state="loading" />
+        {!d ? (
+          <StateCard state={detail.error ? "error" : "loading"} error={detail.error} />
         ) : (
-          <motion.div className="space-y-3" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+          <motion.div className="flex flex-col gap-3" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
             <div className="flex gap-2.5">
               <StatCard label="Times" value={String(d.count)} />
               {d.kind === "defect" ? (
@@ -71,69 +83,67 @@ export default function ErrorDetail({ code, onBack, embedded = false }: { code: 
               <StatCard label="Lost" value={fmt(d.loss_pcs)} unit="pcs" tone="stop" />
             </div>
 
-            <Card className="space-y-3">
-              <div className="flex items-center">
-                <h2 className="flex-1 text-title-m">When it happens</h2>
-                <span className="text-caption font-medium text-text-tertiary">{periodLabel(d.occurrences)}</span>
-              </div>
+            <Card className="flex flex-col gap-3">
+              <CardHeader title="When it happens" meta={periodLabel(d.occurrences)} />
               <PatternGrid cells={d.pattern} tone={d.kind} />
               {patternNote(d) && (
                 <div className={cn("flex items-center gap-2 rounded-badge px-3 py-2.5 text-caption font-medium", d.next_expected ? "bg-status-stop-bg text-status-stop" : "bg-bg-subtle text-text-secondary")}>
-                  <Clock className="size-4 shrink-0" strokeWidth={2.2} />
+                  <Clock className="size-4 shrink-0" strokeWidth={2.2} aria-hidden />
                   {patternNote(d)}
                 </div>
               )}
-            </Card>
-
-            <Card className="space-y-3">
-              <div className="flex items-center gap-1.5">
-                <Check className="size-4 text-status-fix" strokeWidth={2.6} />
-                <Overline className="flex-1 !text-status-fix">Solution</Overline>
-                {d.gain_pp > 0 && <Chip tone="fix">+{d.gain_pp.toFixed(2)} pp OEE</Chip>}
-              </div>
-              {d.fix ? (
-                <>
-                  <ol className="space-y-2.5">
-                    {fixSteps(d.fix.action).map((s, i) => (
-                      <li key={i} className="flex items-start gap-2.5">
-                        <span className="num mt-px grid size-[22px] shrink-0 place-items-center rounded-full bg-status-fix-bg text-[11px] text-status-fix">{i + 1}</span>
-                        <span className="text-body font-medium">{s}</span>
-                      </li>
-                    ))}
-                  </ol>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {d.fix.method && <Chip tone="speed">{d.fix.method}</Chip>}
-                    {d.fix.owner_role && <Chip>Owner: {d.fix.owner_role}</Chip>}
-                  </div>
-                </>
-              ) : (
-                <p className="text-body text-text-secondary">No countermeasure in the knowledge base yet.</p>
+              {d.why && (
+                <p className="flex gap-2 text-caption text-text-secondary">
+                  <Lightbulb className="mt-0.5 size-4 shrink-0 text-status-defect" aria-hidden />
+                  {d.why}
+                </p>
               )}
             </Card>
+
+            <Solution d={d} />
             {err && <p className="px-1 text-caption text-status-stop">{err}</p>}
           </motion.div>
         )}
       </div>
 
-      {d && (
-        <div className={cn(embedded ? "mt-3" : "fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/90 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:static lg:mt-3 lg:border-0 lg:bg-transparent lg:p-0")}>
-          {already ? (
-            <PrimaryButton onClick={() => navigate("/actions")} className="bg-status-fix">
-              <Check className="size-[18px]" strokeWidth={2.4} /> Action already open — view fixes
-            </PrimaryButton>
-          ) : (
-            <PrimaryButton onClick={create} busy={busy}>
-              <Plus className="size-[18px]" strokeWidth={2.4} /> Create action for {owner}
-            </PrimaryButton>
-          )}
-        </div>
-      )}
+      {d &&
+        (already ? (
+          <BottomBar label="Action already open — view fixes" icon={Check} onClick={() => navigate("/fixes")} className={desktop ? "mx-0 border-0 bg-transparent px-0" : undefined} />
+        ) : (
+          <BottomBar label={`Create action for ${owner}`} icon={Plus} onClick={create} disabled={busy} className={desktop ? "mx-0 border-0 bg-transparent px-0" : undefined} />
+        ))}
     </div>
   );
 }
 
-function fmt(n: number): string {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+function Solution({ d }: { d: Detail }) {
+  return (
+    <Card className="flex flex-col gap-3">
+      <div className="flex items-center gap-1.5">
+        <Check className="size-4 text-status-fix" strokeWidth={2.6} aria-hidden />
+        <Eyebrow className="flex-1 !text-status-fix">Solution</Eyebrow>
+        {d.gain_pp > 0 && <Chip tone="fix">+{d.gain_pp.toFixed(2)} pp OEE</Chip>}
+      </div>
+      {d.fix ? (
+        <>
+          <ol className="flex flex-col gap-2.5">
+            {fixSteps(d.fix.action).map((s, i) => (
+              <li key={i} className="flex items-start gap-2.5">
+                <span className="num mt-px grid size-[22px] shrink-0 place-items-center rounded-full bg-status-fix-bg text-[11px] text-status-fix">{i + 1}</span>
+                <span className="text-body font-medium">{s}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {d.fix.method && <Chip tone="speed">{d.fix.method}</Chip>}
+            {d.fix.owner_role && <Chip>Owner: {d.fix.owner_role}</Chip>}
+          </div>
+        </>
+      ) : (
+        <p className="text-body text-text-secondary">No countermeasure in the knowledge base yet.</p>
+      )}
+    </Card>
+  );
 }
 
 function periodLabel(occ: { start: string }[]): string {

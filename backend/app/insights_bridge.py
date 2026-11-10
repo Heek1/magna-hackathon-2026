@@ -23,6 +23,14 @@ try:
     from insights import chat  # type: ignore
 except ImportError:
     chat = None
+try:
+    from insights import upcoming as _upcoming  # type: ignore
+except ImportError:
+    _upcoming = None
+try:
+    from insights import explain as _explain  # type: ignore
+except ImportError:
+    _explain = None
 
 from . import oee
 
@@ -54,6 +62,21 @@ def whatif(data: dict, remove: list[str], from_, to) -> dict:
     hours = oee._between(data["hours"], "Datum", from_, to)
     before = oee.kpis(hours)["oee"]
     return {"oee_before": before, "oee_after": before, "gain_pcs": 0, "gain_pp": 0}
+
+
+def upcoming(data: dict, horizon_hours: int = 48) -> list[dict]:
+    """Stops expected after sim_time (empty without backend/insights)."""
+    return _upcoming(data, horizon_hours) if _upcoming else []
+
+
+def why(data: dict, code: str) -> str | None:
+    """Plain-English explanation of an error code, or None."""
+    if not _explain:
+        return None
+    try:
+        return _explain(data, code)
+    except Exception:  # an explanation is optional; never break the detail screen
+        return None
 
 
 def answer(question: str, data: dict) -> str:

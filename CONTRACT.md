@@ -42,7 +42,10 @@ GET  /api/events?date    → [{time, kind: stop|defect|speed, code, title, detai
 GET  /api/errors/{code}?from&to → {code, kind, description, device, count, minutes, loss_pcs,
                          loss_pp, pattern: [{weekday, hour, count}], occurrences: [{start,
                          minutes, pcs}], next_expected: null | datetime, fix: null | {action,
-                         method, owner_role}, gain_pp}
+                         method, owner_role}, gain_pp, why: null | str}
+GET  /api/upcoming?hours=48 → [{code, kind: stop, title, expected_at, confidence: high|medium|low,
+                         risk_pcs, evidence, insight_id}]  stops expected after sim_time within
+                         that many hours of shift time, sorted by expected_at
 GET  /api/insights   → [{id, kind: recurring_stop|prediction|slow_hour|quality|anomaly, severity:
                          high|medium|low, title, evidence, code, loss_pcs, loss_pp, expected_at,
                          recommendation: {action, method, owner_role, expected_gain_pcs}}]

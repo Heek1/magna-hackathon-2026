@@ -135,7 +135,13 @@ def get_error(code: str, from_: Annotated[date | None, Query(alias="from")] = No
             item["gain_pp"] = insights_bridge.whatif(snap.as_frames(), [code], from_, to)["gain_pp"]
         except Exception:  # keep the loss share as the estimate
             pass
+    item["why"] = insights_bridge.why(snap.as_frames(), code)
     return item
+
+
+@app.get("/api/upcoming")
+def get_upcoming(hours: int = Query(48, ge=1, le=168)):
+    return insights_bridge.upcoming(sim.snapshot().as_frames(), hours)
 
 
 @app.get("/api/insights")

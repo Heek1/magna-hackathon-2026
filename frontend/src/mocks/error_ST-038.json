@@ -42,5 +42,6 @@
     "method": "Autonomous maintenance",
     "owner_role": "Maintenance"
   },
-  "gain_pp": 1.04
+  "gain_pp": 1.04,
+  "why": "Stops every Wednesday at 09:08 (4 of 4 weeks), about 25 min each, at the camera station — a scheduled pattern, not random wear."
 }

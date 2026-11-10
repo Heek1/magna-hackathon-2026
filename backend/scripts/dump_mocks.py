@@ -33,6 +33,7 @@ def main() -> None:
         "events": c.get("/api/events"),
         "error_ST-038": c.get("/api/errors/ST-038"),
         "error_Q-031": c.get("/api/errors/Q-031"),
+        "upcoming": c.get("/api/upcoming"),
         "insights": c.get("/api/insights"),
         "whatif": c.post("/api/whatif", json={"remove": ["ST-038"], "from": "2026-11-02",
                                               "to": SIM_TIME[:10]}),

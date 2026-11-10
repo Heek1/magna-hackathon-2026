@@ -57,3 +57,13 @@ def test_api_routes():
     assert r.status_code == 200 and 0 < r.json()["gain_pp"] <= r.json()["loss_pp"]
     assert c.get("/api/errors/NOPE").status_code == 404
     assert "fix" in c.get("/api/losses").json()[0]
+
+
+def test_upcoming_and_why():
+    c = TestClient(app)
+    c.post("/api/sim/control", json={"paused": True, "jump_to": "2026-11-25T09:20:00"})
+    up = c.get("/api/upcoming").json()
+    assert any(u["code"] == "ST-047" and u["expected_at"].startswith("2026-11-26T08:08") for u in up)
+    assert c.get("/api/upcoming", params={"hours": 0}).status_code == 422
+    why = c.get("/api/errors/ST-038").json()["why"]
+    assert why and "Wednesday" in why

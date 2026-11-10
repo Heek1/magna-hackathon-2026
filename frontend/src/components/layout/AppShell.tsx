@@ -1,16 +1,100 @@
-import type { ReactNode } from "react";
-import { SideNav, type NavItem } from "@/components/layout/SideNav";
-import { TopBar } from "@/components/layout/TopBar";
+import { Suspense, type ComponentType, type ReactNode } from "react";
+import { Outlet, useMatch } from "react-router-dom";
+import { ChartColumn, Clock, SquareCheck } from "lucide-react";
+import { TabBar, type TabItem } from "@/components/TabBar";
+import { SideNav } from "@/components/layout/SideNav";
+import { Card } from "@/components/Card";
+import { StateView } from "@/components/Panel";
+import { useIsDesktop } from "@/lib/useMediaQuery";
+import { cn } from "@/lib/utils";
 
-/** Control-room frame: side rail + header + scrollable page. Sized for 1920×1080. */
-export function AppShell({ nav, title, children }: { nav: NavItem[]; title: string; children: ReactNode }) {
-  return (
-    <div className="flex h-full min-w-[1280px]">
-      <SideNav items={nav} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={title} />
-        <main className="min-h-0 flex-1 overflow-auto p-5">{children}</main>
+export const appTabs: TabItem[] = [
+  { to: "/", label: "Now", icon: Clock },
+  { to: "/errors", label: "Top errors", icon: ChartColumn },
+  { to: "/fixes", label: "Fixes", icon: SquareCheck },
+];
+
+/**
+ * Phone: one screen at a time with the bottom TabBar (hidden on Error detail).
+ * Desktop ≥ 1024 px: left nav; the routed screen fills the main area (see DesktopBoard).
+ */
+export function AppShell() {
+  const desktop = useIsDesktop();
+  const onDetail = !!useMatch("/errors/:code");
+
+  if (desktop) {
+    return (
+      <div className="flex h-dvh overflow-hidden">
+        <SideNav items={appTabs} />
+        <main className="min-w-0 flex-1 overflow-hidden">
+          <Outlet />
+        </main>
       </div>
+    );
+  }
+
+  return (
+    <>
+      <main
+        className={cn(
+          "mx-auto min-h-dvh max-w-md px-gutter pt-[max(16px,env(safe-area-inset-top))]",
+          onDetail ? "pb-0" : "pb-[calc(88px+env(safe-area-inset-bottom))]",
+        )}
+      >
+        <Outlet />
+      </main>
+      {!onDetail && <TabBar items={appTabs} />}
+    </>
+  );
+}
+
+/**
+ * Desktop and projector: Now and Top errors side by side; Error detail as a right-hand panel.
+ * Each column scrolls on its own.
+ */
+export function DesktopBoard({ now, errors, detail }: { now: ReactNode; errors: ReactNode; detail?: ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "grid h-full gap-6 px-2 py-6 pr-6",
+        detail ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(380px,440px)]" : "grid-cols-2",
+      )}
+    >
+      <Column>{now}</Column>
+      <Column>{errors}</Column>
+      {detail && (
+        <aside aria-label="Error detail" className="min-h-0 overflow-y-auto rounded-hero bg-bg-card px-gutter shadow-card">
+          {detail}
+        </aside>
+      )}
     </div>
+  );
+}
+
+function Column({ children }: { children: ReactNode }) {
+  return <section className="min-h-0 overflow-y-auto px-2">{children}</section>;
+}
+
+/** A screen owned by another member, or a placeholder while it is not built yet. */
+export function ScreenSlot({ page: Page, name, file }: { page: ComponentType | null; name: string; file: string }) {
+  if (!Page)
+    return (
+      <Card className="mt-4">
+        <p className="text-title-m">{name}</p>
+        <p className="mt-1 text-caption text-text-secondary">
+          Not built yet — expected in <code className="num">{file}</code>.
+        </p>
+      </Card>
+    );
+  return (
+    <Suspense
+      fallback={
+        <div className="pt-4">
+          <StateView state="loading" />
+        </div>
+      }
+    >
+      <Page />
+    </Suspense>
   );
 }

@@ -1,0 +1,52 @@
+[
+  {
+    "code": "ST-047",
+    "kind": "stop",
+    "title": "Test nest allows air leakage",
+    "expected_at": "2026-11-26T08:08:00",
+    "confidence": "high",
+    "risk_pcs": 15.0,
+    "evidence": "3 of 3 Thursdays at 08:08",
+    "insight_id": "recurring_stop:ST-047:thu:3"
+  },
+  {
+    "code": "ST-001",
+    "kind": "stop",
+    "title": "Part unavailable at station",
+    "expected_at": "2026-11-30T11:08:00",
+    "confidence": "low",
+    "risk_pcs": 8.5,
+    "evidence": "2 of 4 Mondays at 11:08",
+    "insight_id": null
+  },
+  {
+    "code": "ST-016",
+    "kind": "stop",
+    "title": "Vision station interrupted operation",
+    "expected_at": "2026-12-01T08:08:00",
+    "confidence": "low",
+    "risk_pcs": 7.0,
+    "evidence": "2 of 4 Tuesdays at 08:08",
+    "insight_id": null
+  },
+  {
+    "code": "ST-038",
+    "kind": "stop",
+    "title": "Camera light module interrupted operation",
+    "expected_at": "2026-12-02T09:08:00",
+    "confidence": "high",
+    "risk_pcs": 25.0,
+    "evidence": "4 of 4 Wednesdays at 09:08",
+    "insight_id": "recurring_stop:ST-038:wed:4"
+  },
+  {
+    "code": "ST-047",
+    "kind": "stop",
+    "title": "Test nest allows air leakage",
+    "expected_at": "2026-12-03T08:08:00",
+    "confidence": "high",
+    "risk_pcs": 15.0,
+    "evidence": "3 of 3 Thursdays at 08:08",
+    "insight_id": "recurring_stop:ST-047:thu:3"
+  }
+]
