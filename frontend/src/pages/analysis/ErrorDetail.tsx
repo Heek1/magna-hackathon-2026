@@ -12,6 +12,7 @@ import { useIsDesktop } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
 import { KIND_LABEL, deviceName, fixSteps, fmt, patternNote } from "./model";
 import { BackButton, Eyebrow, StatCard, StateCard } from "./ui";
+import { WhatIfCard } from "./WhatIfCard";
 
 /** 03 Error detail (/errors/:code) — when it happens and how to fix it. */
 export default function ErrorDetailPage() {
@@ -98,6 +99,7 @@ export default function ErrorDetailPage() {
             </Card>
 
             <Solution d={d} />
+            <WhatIfCard code={code} />
             {err && <p className="px-1 text-caption text-status-stop">{err}</p>}
           </motion.div>
         )}
