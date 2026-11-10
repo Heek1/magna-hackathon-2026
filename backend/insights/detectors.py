@@ -260,8 +260,16 @@ def anomaly(ctx: Context) -> list[dict]:
         z = (oee - mean) / std
         loss = (mean - oee) * current["Plan_min"]
         loss_pp = pp(loss, ctx.plan_day)
-        downtime = (f" Downtime in this hour: {num(current['Prestoj_min'])} min."
-                    if current["Prestoj_min"] > 0 else "")
+        # The longest stop of the hour is the cause to act on; without a stop there is no single code.
+        stops = ctx.downtime
+        if not stops.empty:
+            stops = stops[(stops["date"] == ctx.today) & (stops["hour"] == ctx.cur_hour)]
+        cause, downtime = None, ""
+        if not stops.empty:
+            top = stops.loc[stops["Trvanie_min"].idxmax()]
+            cause = top["Kod_chyby"]
+            downtime = (f" Downtime in this hour: {num(current['Prestoj_min'])} min, mainly "
+                        f"{cause} {top['Popis_EN']} ({top['Zariadenie']}).")
         out.append(insight(
             id=f"anomaly:oee:{day_id}",
             kind="anomaly",
@@ -270,10 +278,10 @@ def anomaly(ctx: Context) -> list[dict]:
             evidence=(f"{where}: OEE {oee:.1%} vs {mean:.1%} norm of this shift hour over "
                       f"{len(history)} previous shifts (σ {std * 100:.1f} pp, z = {z:+.1f}).{downtime} "
                       f"{loss:.1f} pcs below normal, {loss_pp:.1f} pp of today's OEE."),
-            code=None,
+            code=cause,
             loss_pcs=loss,
             loss_pp=loss_pp,
-            keys=["anomaly"],
+            keys=[cause, "anomaly"],
         ))
 
     micro = current["Mikrostop_s"] / current["Chod_min"]

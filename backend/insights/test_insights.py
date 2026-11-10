@@ -135,7 +135,9 @@ def test_microstop_anomaly_before_the_camera_stop(ds):
 def test_oee_anomaly_in_an_hour_with_an_unusual_stop(ds):
     # 13 min of ST-046 in hour 2, which normally runs without downtime
     insights = of_kind(get_insights(at(ds, "2026-11-25 08:00")), "anomaly")
-    assert any(i["id"] == "anomaly:oee:2026-11-25:2" for i in insights)
+    item = next(i for i in insights if i["id"] == "anomaly:oee:2026-11-25:2")
+    assert item["code"] == "ST-046"  # the stop that caused it, so it gets that code's countermeasure
+    assert "13 min, mainly ST-046" in item["evidence"]
 
 
 def test_no_anomaly_while_the_hour_has_barely_run(ds):
@@ -277,7 +279,7 @@ def test_real_countermeasures_cover_the_insights(ds, monkeypatch):
     monkeypatch.setattr(engine, "COUNTERMEASURES_PATH", Path(engine.__file__).with_name("countermeasures.json"))
     for frames in (whole(ds), at(ds, "2026-11-25 08:30"), at(ds, "2026-11-25 08:00")):
         for item in get_insights(frames):
-            if item["id"].startswith("anomaly:oee"):  # no single cause, so no key
+            if item["code"] is None:  # an OEE anomaly without a stop has no single cause
                 continue
             rec = item["recommendation"]
             assert rec and rec["action"] and rec["method"] and rec["owner_role"], item["id"]
