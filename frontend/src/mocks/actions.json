@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "insight_id": "stub-1",
+    "title": "Clean camera and check lighting before shift",
+    "owner": "Maintenance",
+    "status": "open",
+    "created_at": "2026-11-10T15:56:56+00:00"
+  },
+  {
+    "id": 2,
+    "insight_id": null,
+    "title": "Line and material ready before break ends",
+    "owner": "Team leader",
+    "status": "in_progress",
+    "created_at": "2026-11-10T15:56:56+00:00"
+  }
+]

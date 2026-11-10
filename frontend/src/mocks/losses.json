@@ -1,0 +1,119 @@
+[
+  {
+    "type": "slowdown",
+    "code": "slowdown",
+    "device": null,
+    "description": "Slowdown",
+    "loss_pcs": 272.1,
+    "loss_pp": 3.55,
+    "count": 140
+  },
+  {
+    "type": "microstop",
+    "code": "microstop",
+    "device": null,
+    "description": "Microstops",
+    "loss_pcs": 162.5,
+    "loss_pp": 2.12,
+    "count": 140
+  },
+  {
+    "type": "downtime",
+    "code": "ST-038",
+    "device": "Kamera",
+    "description": "Camera light module interrupted operation",
+    "loss_pcs": 87.0,
+    "loss_pp": 1.13,
+    "count": 4
+  },
+  {
+    "type": "downtime",
+    "code": "ST-001",
+    "device": "Zasobovanie",
+    "description": "Part unavailable at station",
+    "loss_pcs": 60.0,
+    "loss_pp": 0.78,
+    "count": 7
+  },
+  {
+    "type": "downtime",
+    "code": "ST-046",
+    "device": "Leak test",
+    "description": "Leak measurement unit interrupted test",
+    "loss_pcs": 55.0,
+    "loss_pp": 0.72,
+    "count": 5
+  },
+  {
+    "type": "downtime",
+    "code": "ST-017",
+    "device": "Nastroj",
+    "description": "Tool work sequence halted",
+    "loss_pcs": 50.0,
+    "loss_pp": 0.65,
+    "count": 4
+  },
+  {
+    "type": "retest",
+    "code": "retest",
+    "device": null,
+    "description": "Retests",
+    "loss_pcs": 45.3,
+    "loss_pp": 0.59,
+    "count": 136
+  },
+  {
+    "type": "downtime",
+    "code": "ST-047",
+    "device": "Leak test",
+    "description": "Test nest allows air leakage",
+    "loss_pcs": 45.0,
+    "loss_pp": 0.59,
+    "count": 3
+  },
+  {
+    "type": "downtime",
+    "code": "ST-016",
+    "device": "Kamera",
+    "description": "Vision station interrupted operation",
+    "loss_pcs": 44.0,
+    "loss_pp": 0.57,
+    "count": 5
+  },
+  {
+    "type": "nok",
+    "code": "Q-031",
+    "device": null,
+    "description": "Product circuit allows fluid escape",
+    "loss_pcs": 32.0,
+    "loss_pp": 0.42,
+    "count": 29
+  },
+  {
+    "type": "nok",
+    "code": "Q-026",
+    "device": null,
+    "description": "Threaded joint lacks required tightening",
+    "loss_pcs": 24.0,
+    "loss_pp": 0.31,
+    "count": 22
+  },
+  {
+    "type": "nok",
+    "code": "Q-020",
+    "device": null,
+    "description": "Press-fit element short of target position",
+    "loss_pcs": 22.0,
+    "loss_pp": 0.29,
+    "count": 21
+  },
+  {
+    "type": "nok",
+    "code": "Q-030",
+    "device": null,
+    "description": "Product failed image-based check",
+    "loss_pcs": 20.0,
+    "loss_pp": 0.26,
+    "count": 20
+  }
+]

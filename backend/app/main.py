@@ -1,0 +1,200 @@
+"""FastAPI app. Run from backend/:  uvicorn app.main:app --port 8000"""
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+from contextlib import asynccontextmanager
+from datetime import date, datetime
+from pathlib import Path
+from typing import Annotated
+
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+from . import data, insights_bridge, oee
+from .db import ActionStore
+from .sim import Simulator
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+DATA_PATH = os.environ.get("OEE_DATA", str(BACKEND_DIR.parent / "data" / "oee.xlsx"))
+DB_PATH = os.environ.get("ACTIONS_DB", str(BACKEND_DIR / "actions.db"))
+TICK_SECONDS = 1.0
+
+sim = Simulator(data.load(DATA_PATH))
+actions = ActionStore(DB_PATH)
+
+
+async def _ticker() -> None:
+    while True:
+        await asyncio.sleep(TICK_SECONDS)
+        sim.advance(TICK_SECONDS)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    task = asyncio.create_task(_ticker())
+    yield
+    task.cancel()
+
+
+app = FastAPI(title="Magna OEE Improvement Engine", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ---------- state ----------
+
+def build_state() -> dict:
+    snap = sim.snapshot()
+    today = snap.hours[snap.hours["Datum"].dt.date == snap.sim_time.date()]
+    shift = oee.kpis(today)
+    current_hour = int(today["Hodina_zmeny"].iloc[-1]) if not today.empty else 1
+    hours = []
+    for _, row in today.iterrows():
+        hours.append({"date": row["Datum"].date().isoformat(), "hour": int(row["Hodina_zmeny"]),
+                      **oee.kpis(row.to_frame().T)})
+    return {
+        "sim_time": snap.sim_time.isoformat(),
+        "shift": {"date": snap.sim_time.date().isoformat(), "hour": current_hour, **shift},
+        "hours": hours,
+        "active_downtime": sim.active_downtime(),
+    }
+
+
+@app.get("/api/state")
+def get_state():
+    return build_state()
+
+
+async def state_events(is_disconnected):
+    """SSE: an "state" event on every sim_time change, a comment every 15 s as keep-alive."""
+    last = None
+    idle = 0.0
+    while not await is_disconnected():
+        if sim.version != last:
+            last = sim.version
+            idle = 0.0
+            yield f"event: state\ndata: {json.dumps(build_state())}\n\n"
+        elif idle >= 15:
+            idle = 0.0
+            yield ": keep-alive\n\n"
+        await asyncio.sleep(0.25)
+        idle += 0.25
+
+
+@app.get("/api/stream")
+async def stream(request: Request):
+    return StreamingResponse(state_events(request.is_disconnected), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ---------- analytics ----------
+
+@app.get("/api/history")
+def get_history(from_: Annotated[date | None, Query(alias="from")] = None, to: date | None = None):
+    return oee.history(sim.snapshot().hours, from_, to)
+
+
+@app.get("/api/heatmap")
+def get_heatmap(metric: str = "oee"):
+    if metric not in oee.HEATMAP_METRICS:
+        raise HTTPException(422, f"metric must be one of {oee.HEATMAP_METRICS}")
+    return oee.heatmap(sim.snapshot().hours, metric)
+
+
+@app.get("/api/losses")
+def get_losses(from_: Annotated[date | None, Query(alias="from")] = None, to: date | None = None):
+    snap = sim.snapshot()
+    return oee.losses(snap.hours, snap.downtime, snap.nok, from_, to)
+
+
+@app.get("/api/insights")
+def get_insights():
+    return insights_bridge.insights(sim.snapshot().as_frames())
+
+
+class WhatIfIn(BaseModel):
+    remove: list[str]
+    from_: date | None = Field(None, alias="from")
+    to: date | None = None
+
+
+@app.post("/api/whatif")
+def post_whatif(body: WhatIfIn):
+    return insights_bridge.whatif(sim.snapshot().as_frames(), body.remove, body.from_, body.to)
+
+
+class ChatIn(BaseModel):
+    question: str
+
+
+@app.post("/api/chat")
+def post_chat(body: ChatIn):
+    try:
+        return {"answer": insights_bridge.answer(body.question, sim.snapshot().as_frames())}
+    except Exception as exc:  # no LLM key or chat not available
+        raise HTTPException(503, f"Chat unavailable: {exc}") from exc
+
+
+# ---------- actions ----------
+
+class ActionIn(BaseModel):
+    title: str
+    insight_id: str | None = None
+    owner: str | None = None
+    status: str = "open"
+
+
+class ActionPatch(BaseModel):
+    title: str | None = None
+    insight_id: str | None = None
+    owner: str | None = None
+    status: str | None = None
+
+
+@app.get("/api/actions")
+def list_actions():
+    return actions.list()
+
+
+@app.post("/api/actions", status_code=201)
+def create_action(body: ActionIn):
+    try:
+        return actions.create(**body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.patch("/api/actions/{action_id}")
+def patch_action(action_id: int, body: ActionPatch):
+    try:
+        updated = actions.update(action_id, **body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if updated is None:
+        raise HTTPException(404, "action not found")
+    return updated
+
+
+# ---------- simulator ----------
+
+class SimControlIn(BaseModel):
+    speed: float | None = None
+    jump_to: datetime | None = None
+    paused: bool | None = None
+
+
+@app.post("/api/sim/control")
+def sim_control(body: SimControlIn):
+    try:
+        sim.control(body.speed, body.jump_to, body.paused)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"sim_time": sim.sim_time.isoformat(), "speed": sim.speed, "paused": sim.paused}
