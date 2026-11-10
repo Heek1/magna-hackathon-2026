@@ -19,7 +19,8 @@ def what_if(data, remove, from_=None, to=None) -> dict:
     - slow_hour_N: Performance of shift hour N rises to the median of the other hours;
     - microstop / retest / slowdown (the codes of /api/losses): that time produces pieces;
     - a scrap code: its NOK pieces become OK.
-    Gains are in good pieces. Unknown keys change nothing.
+    Gains are in good pieces. Unknown keys change nothing. Slow hours are part of the speed
+    losses, so together they never recover more than the speed loss of the period.
     """
     ctx = normalize(data)
     hours = ctx.hours
@@ -43,23 +44,23 @@ def what_if(data, remove, from_=None, to=None) -> dict:
     by_hour = hours[hours["Chod_min"] > 0].groupby("hour")[["Chod_min", "Vyrobene_ks"]].sum()
     hour_perf = by_hour["Vyrobene_ks"] / by_hour["Chod_min"]
 
-    gain = 0.0
+    gain = speed_gain = 0.0
     for key in dict.fromkeys(remove):  # each key once
         slow = _SLOW_HOUR.match(key)
         if slow:
             hour = int(slow.group(1))
             if hour in hour_perf.index and len(hour_perf) > 1:
                 lift = hour_perf.drop(hour).median() - hour_perf[hour]
-                gain += max(0.0, lift) * by_hour.loc[hour, "Chod_min"] * quality
+                speed_gain += max(0.0, lift) * by_hour.loc[hour, "Chod_min"] * quality
         elif key in SPEED_COLUMNS:
-            gain += hours[SPEED_COLUMNS[key]].sum() / 60 * quality
+            speed_gain += hours[SPEED_COLUMNS[key]].sum() / 60 * quality
         elif not downtime.empty and (downtime["Kod_chyby"] == key).any():
             minutes = downtime.loc[downtime["Kod_chyby"] == key, "Trvanie_min"].sum()
             gain += minutes * performance * quality
         elif not nok.empty:
             gain += nok.loc[nok["Kod_chyby"] == key, "NOK_ks"].sum()
 
-    gain = float(gain)
+    gain = float(gain + min(speed_gain, max(0.0, run - produced) * quality))
     before, after = ok / plan, (ok + gain) / plan
     return {
         "oee_before": round(before, 4),

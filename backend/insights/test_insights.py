@@ -284,3 +284,40 @@ def test_real_countermeasures_cover_the_insights(ds, monkeypatch):
             rec = item["recommendation"]
             assert rec and rec["action"] and rec["method"] and rec["owner_role"], item["id"]
             assert rec["expected_gain_pcs"] == item["loss_pcs"]
+
+
+# ---------- what the frontend sends (What if panel, chat probe) ----------
+
+def test_what_if_speed_gain_is_capped_by_the_speed_loss(ds):
+    frames = whole(ds)
+    speed = ["microstop", "retest", "slowdown"]
+    all_speed = what_if(frames, speed)
+    assert all_speed["gain_pcs"] == pytest.approx((8830 - 8251) * 8132 / 8251, abs=0.2)
+    # slow hours are already inside the speed losses
+    assert what_if(frames, speed + ["slow_hour_1", "slow_hour_5"]) == all_speed
+    everything = what_if(frames, speed + ["slow_hour_1", "ST-038", "ST-047", "ST-001", "ST-016",
+                                          "ST-017", "ST-046", "Q-020", "Q-026", "Q-030", "Q-031"])
+    assert everything["oee_after"] <= 1
+
+
+def test_chat_probe_with_an_empty_question_does_not_call_the_llm(ds, monkeypatch):
+    def no_call(*args, **kwargs):
+        raise AssertionError("LLM called")
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr("urllib.request.urlopen", no_call)
+    assert chat("", whole(ds)) == ""
+    assert chat("   ", whole(ds)) == ""
+
+
+def test_chat_answers_in_words_when_the_llm_fails(ds, monkeypatch):
+    import urllib.error
+
+    def rate_limited(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 429, "Too Many Requests", {}, None)
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr("urllib.request.urlopen", rate_limited)
+    assert "HTTP 429" in chat("Why?", whole(ds))
+    monkeypatch.setattr("urllib.request.urlopen", lambda request, timeout: (_ for _ in ()).throw(TimeoutError()))
+    assert "did not respond" in chat("Why?", whole(ds))
