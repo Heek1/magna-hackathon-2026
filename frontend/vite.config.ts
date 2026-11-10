@@ -34,7 +34,9 @@ export default defineConfig({
         // App shell only; live data (/api, including the SSE stream) always goes to the network.
         globPatterns: ["**/*.{js,css,html,png,woff2}"],
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//],
+        // Links with ?key= (QR code) or ?locked= must reach the server, which sets the access cookie
+        // or shows the "Access required" page; the cached app shell would swallow them.
+        navigateFallbackDenylist: [/^\/api\//, /[?&](key|locked)=/],
       },
     }),
   ],
