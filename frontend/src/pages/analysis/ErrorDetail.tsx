@@ -13,9 +13,6 @@ import { cn } from "@/lib/utils";
 import { KIND_LABEL, deviceName, fixSteps, fmt, patternNote } from "./model";
 import { BackButton, Eyebrow, StatCard, StateCard } from "./ui";
 
-/** `why` comes from backend/insights explain(); optional until every backend has it. */
-type DetailWithWhy = Detail & { why?: string | null };
-
 /** 03 Error detail (/errors/:code) — when it happens and how to fix it. */
 export default function ErrorDetailPage() {
   const { code = "" } = useParams();
@@ -29,7 +26,7 @@ export default function ErrorDetailPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const d = detail.data as DetailWithWhy | undefined;
+  const d = detail.data;
   const owner = d?.fix?.owner_role ?? "Team leader";
   const title = d?.fix?.action ?? `Remove ${code}`;
   const already = !!actions?.some((a) => a.title === title && a.status !== "done");

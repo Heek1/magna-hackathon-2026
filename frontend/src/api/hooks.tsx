@@ -25,6 +25,7 @@ import type {
   SimControl,
   SimControlState,
   SimState,
+  UpcomingStop,
 } from "@/types/api";
 import { API_BASE, api, errorText, qs } from "@/api/client";
 import { parseTime, toIso } from "@/lib/format";
@@ -367,6 +368,11 @@ export function useEvents(date: string | null): Resource<LineEvent[]> {
 /** GET /api/errors/{code}?from&to — when an error happens, what it costs and its fix. `null` skips. */
 export function useErrorDetail(code: string | null, period?: Period): Resource<ErrorDetail> {
   return useApi<ErrorDetail>(code ? `/errors/${encodeURIComponent(code)}${qs(period ?? {})}` : null);
+}
+
+/** GET /api/upcoming?hours — stops expected within that many hours of shift time. */
+export function useUpcoming(hours = 48): Resource<UpcomingStop[]> {
+  return useApi<UpcomingStop[]>(`/upcoming${qs({ hours })}`);
 }
 
 /** GET /api/insights — shared, fetched once per refresh for the whole app. */

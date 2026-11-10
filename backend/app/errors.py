@@ -16,6 +16,12 @@ FIXES_PATH = Path(__file__).resolve().parent.parent / "insights" / "countermeasu
 SPEED_CODES = {code: (col, description) for code, col, description, _ in oee.SPEED_LOSSES}
 SPEED_EVENT_MIN_PCS = 1.0  # an hour shows a speed event only from 1 piece lost
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+# Station names in the workbook are Slovak; the API speaks English (the data itself is not changed).
+DEVICE_EN = {"Kamera": "Camera", "Nastroj": "Tool", "Zasobovanie": "Part supply"}
+
+
+def device_en(name):
+    return DEVICE_EN.get(name, name) if isinstance(name, str) else name
 
 
 def load_fixes(path: Path = FIXES_PATH) -> dict[str, dict]:
@@ -28,7 +34,7 @@ def load_fixes(path: Path = FIXES_PATH) -> dict[str, dict]:
 
 
 def with_fix(items: list[dict], fixes: dict[str, dict]) -> list[dict]:
-    return [{**item, "fix": fixes.get(item["code"])} for item in items]
+    return [{**item, "device": device_en(item["device"]), "fix": fixes.get(item["code"])} for item in items]
 
 
 def _hour_start(hours: pd.DataFrame) -> dict:
@@ -45,7 +51,7 @@ def events(hours: pd.DataFrame, downtime: pd.DataFrame, nok: pd.DataFrame,
 
     for _, r in downtime[downtime["Hodina_ID"].isin(ids)].iterrows():
         out.append({"time": r["Cas_od"], "kind": "stop", "code": r["Kod_chyby"],
-                    "title": f"{r['Kod_chyby']} {r['Zariadenie']}", "detail": r["Popis_EN"],
+                    "title": f"{r['Kod_chyby']} {device_en(r['Zariadenie'])}", "detail": r["Popis_EN"],
                     "value": round(float(r["Trvanie_min"]), 1), "unit": "min",
                     "active": bool(r["Cas_do"] >= pd.Timestamp(sim_time))})
 
@@ -66,7 +72,7 @@ def events(hours: pd.DataFrame, downtime: pd.DataFrame, nok: pd.DataFrame,
         main = max(parts, key=parts.get)
         detail = " · ".join(f"{SPEED_CODES[c][1]} {v:.1f}" for c, v in parts.items() if v >= 0.05)
         out.append({"time": r["Cas_od"], "kind": "speed", "code": main,
-                    "title": "Speed loss", "detail": detail,
+                    "title": SPEED_CODES[main][1], "detail": detail,
                     "value": round(total, 1), "unit": "pcs", "active": False})
 
     out.sort(key=lambda e: e["time"], reverse=True)
@@ -107,7 +113,8 @@ def detail(code: str, hours: pd.DataFrame, downtime: pd.DataFrame, nok: pd.DataF
     stops = downtime[(downtime["Kod_chyby"] == code) & downtime["Hodina_ID"].isin(ids)]
     defects = nok[(nok["Kod_chyby"] == code) & nok["Hodina_ID"].isin(ids)]
     if not stops.empty:
-        kind, device, description = "stop", stops["Zariadenie"].mode().iloc[0], stops["Popis_EN"].iloc[0]
+        kind, description = "stop", stops["Popis_EN"].iloc[0]
+        device = device_en(stops["Zariadenie"].mode().iloc[0])
         occ = [{"start": r["Cas_od"], "minutes": float(r["Trvanie_min"]),
                 "pcs": float(r["Trvanie_min"])} for _, r in stops.iterrows()]
     elif not defects.empty:

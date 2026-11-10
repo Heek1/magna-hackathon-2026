@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import type { LineEvent, Loss, SimState } from "@/types/api";
-import { resourceState, useConnection, useEvents, useLosses, useSimClock, useSimState, type Resource } from "@/api/hooks";
+import type { Confidence, LineEvent, Loss, SimState, UpcomingStop } from "@/types/api";
+import { resourceState, useConnection, useEvents, useLosses, useSimClock, useSimState, useUpcoming, type Resource } from "@/api/hooks";
 import { Card, CardHeader } from "@/components/Card";
 import { Chip } from "@/components/Chip";
 import { EventRow } from "@/components/EventRow";
@@ -10,6 +10,9 @@ import { StateView } from "@/components/Panel";
 import { SimSettings } from "@/components/SimSettings";
 import { StatusHero } from "@/components/StatusHero";
 import { dayLabel, greeting, hhmm, parseTime, pcs } from "@/lib/format";
+import { CalendarClock } from "lucide-react";
+import { toneBg, toneText, type Tone } from "@/lib/tone";
+import { cn } from "@/lib/utils";
 
 /** 01 Now — what is happening on the line and when. */
 export default function NowPage() {
@@ -43,6 +46,7 @@ export default function NowPage() {
           ))}
         </div>
       )}
+      <ComingUp waiting={!state} onOpen={open} />
       <ErrorsToday events={events} waiting={!state} onOpen={open} />
     </div>
   );
@@ -167,5 +171,74 @@ function ErrorsToday({
         </StateView>
       </div>
     </Card>
+  );
+}
+
+/** 48 h of shift time (06:00–14:00 on working days) = the next 6 shifts. */
+const HORIZON_H = 48;
+const confidenceTone: Record<Confidence, Tone> = { high: "stop", medium: "defect", low: "neutral" };
+const confidenceText: Record<Confidence, string> = { high: "High confidence", medium: "Likely", low: "Possible" };
+const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** "In 22 h 48 min", "In 35 min", "Now" — calendar time until the expected stop. */
+function untilText(ms: number): string {
+  if (ms <= 60_000) return "Now";
+  const min = Math.round(ms / 60_000);
+  const h = Math.floor(min / 60);
+  return h ? `In ${h} h ${min % 60} min` : `In ${min} min`;
+}
+
+/** Stops the engine expects next (GET /api/upcoming): the line is warned before it stops. */
+function ComingUp({ waiting, onOpen }: { waiting: boolean; onOpen: (code: string) => void }) {
+  const upcoming = useUpcoming(HORIZON_H);
+  const { now } = useSimClock();
+  const items = (upcoming.data ?? []).slice(0, 3);
+
+  return (
+    <Card>
+      <CardHeader title="Coming up" meta="next 6 shifts" />
+      <div className="mt-1">
+        <StateView
+          state={waiting ? "loading" : resourceState(upcoming)}
+          emptyText="No repeating stops expected — nothing to prepare for."
+          errorText={upcoming.error}
+        >
+          {items.map((u, i) => (
+            <UpcomingRow key={`${u.code}-${u.expected_at}`} item={u} countdown={i === 0 ? untilText(parseTime(u.expected_at).getTime() - now.getTime()) : null} onClick={() => onOpen(u.code)} />
+          ))}
+        </StateView>
+      </div>
+    </Card>
+  );
+}
+
+function UpcomingRow({ item, countdown, onClick }: { item: UpcomingStop; countdown: string | null; onClick: () => void }) {
+  const at = parseTime(item.expected_at);
+  const tone = confidenceTone[item.confidence];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="-mx-2 grid min-h-[64px] w-[calc(100%+16px)] grid-cols-[44px_28px_minmax(0,1fr)_auto] items-center gap-3 rounded-badge px-2 py-2.5 text-left hover:bg-bg-subtle"
+    >
+      <span className="flex flex-col leading-tight">
+        <span className="text-caption text-text-tertiary">{WEEKDAY[at.getDay()]}</span>
+        <span className="num text-num-s text-text-primary">{hhmm(at)}</span>
+      </span>
+      <span className={cn("flex h-7 w-7 items-center justify-center rounded-badge-sm", toneBg[tone], toneText[tone])}>
+        <CalendarClock className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-body font-medium text-text-primary">
+          {item.code} · {item.title}
+        </span>
+        <span className="block truncate text-caption text-text-secondary">
+          <span className={cn("font-medium", toneText[tone])}>{countdown ?? confidenceText[item.confidence]}</span>
+          {" · "}
+          {item.evidence}
+        </span>
+      </span>
+      <span className={cn("num whitespace-nowrap text-num-m", toneText[tone])}>~{Math.round(item.risk_pcs)} pcs</span>
+    </button>
   );
 }

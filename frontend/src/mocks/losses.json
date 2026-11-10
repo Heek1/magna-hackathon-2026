@@ -26,7 +26,7 @@
   {
     "type": "downtime",
     "code": "ST-038",
-    "device": "Kamera",
+    "device": "Camera",
     "description": "Camera light module interrupted operation",
     "loss_pcs": 87.0,
     "loss_pp": 1.13,
@@ -40,7 +40,7 @@
   {
     "type": "downtime",
     "code": "ST-001",
-    "device": "Zasobovanie",
+    "device": "Part supply",
     "description": "Part unavailable at station",
     "loss_pcs": 60.0,
     "loss_pp": 0.78,
@@ -68,7 +68,7 @@
   {
     "type": "downtime",
     "code": "ST-017",
-    "device": "Nastroj",
+    "device": "Tool",
     "description": "Tool work sequence halted",
     "loss_pcs": 50.0,
     "loss_pp": 0.65,
@@ -110,7 +110,7 @@
   {
     "type": "downtime",
     "code": "ST-016",
-    "device": "Kamera",
+    "device": "Camera",
     "description": "Vision station interrupted operation",
     "loss_pcs": 44.0,
     "loss_pp": 0.57,

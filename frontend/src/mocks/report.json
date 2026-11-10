@@ -188,7 +188,7 @@
       "title": "Clean camera and check lighting before shift",
       "owner": "Maintenance",
       "status": "open",
-      "created_at": "2026-11-10T20:21:10+00:00"
+      "created_at": "2026-11-10T20:27:59+00:00"
     },
     {
       "id": 2,
@@ -196,7 +196,7 @@
       "title": "Line and material ready before break ends",
       "owner": "Team leader",
       "status": "in_progress",
-      "created_at": "2026-11-10T20:21:10+00:00"
+      "created_at": "2026-11-10T20:27:59+00:00"
     }
   ],
   "summary": "Wednesday 2026-11-25: OEE 76.4 % (8.6 pp below the 85 % target) — availability 86.8 %, performance 89.1 %, quality 98.6 %. Produced 147.1 pcs, 145.1 OK, 2 NOK, 25 min downtime. Top losses: ST-046 (Leak test) 13 pcs; ST-038 (Kamera) 12 pcs; slowdown 10.2 pcs. 7 insight(s), highest impact: ST-038 Camera light module interrupted operation repeats every Wednesday in shift hour 4. Actions: 2 total, 2 not done."
