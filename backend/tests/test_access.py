@@ -53,3 +53,10 @@ def test_health_is_public_when_locked():
     from app import access as acc
     assert "/api/health" in acc.PUBLIC_PATHS
     assert TestClient(real_app).get("/api/health").json() == {"ok": True}
+
+
+def test_service_worker_files_are_public():
+    c = make("s3cret")
+    assert c.get("/sw.js").status_code == 200
+    assert c.get("/workbox-abc123.js").status_code == 200
+    assert c.get("/api/state").status_code == 401

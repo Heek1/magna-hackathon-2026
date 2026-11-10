@@ -17,7 +17,10 @@ COOKIE = "oee_access"
 MAX_AGE = 60 * 60 * 24 * 60  # 60 days
 # Files the browser fetches without cookies to install the PWA; they reveal nothing.
 # /api/health is for the hosting platform's health check and answers only {"ok": true}.
-PUBLIC_PATHS = {"/api/health", "/manifest.webmanifest", "/pwa-192.png", "/pwa-512.png", "/apple-touch-icon.png", "/favicon.ico"}
+# The service worker files hold only the app's file list; without them a phone that already has the
+# app cached would never update and would keep failing with 401.
+PUBLIC_PREFIXES = ("/workbox-",)
+PUBLIC_PATHS = {"/sw.js", "/registerSW.js", "/api/health", "/manifest.webmanifest", "/pwa-192.png", "/pwa-512.png", "/apple-touch-icon.png", "/favicon.ico"}
 
 LOCKED_PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -49,7 +52,7 @@ def install(app: FastAPI, key: str | None) -> None:
     @app.middleware("http")
     async def require_key(request: Request, call_next):
         path = request.url.path
-        if path in PUBLIC_PATHS or valid(request.cookies.get(COOKIE)):
+        if path in PUBLIC_PATHS or path.startswith(PUBLIC_PREFIXES) or valid(request.cookies.get(COOKIE)):
             return await call_next(request)
 
         given = request.query_params.get("key")
