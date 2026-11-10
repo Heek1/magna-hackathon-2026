@@ -1,0 +1,432 @@
+{
+  "ST-001": {
+    "action": "Establish a standard kanban pull system to stage replenishment parts before station depletion.",
+    "method": "Standard work",
+    "owner_role": "Logistics"
+  },
+  "ST-002": {
+    "action": "Install physical nest profiling and optical height interlocks to prevent loading more than one part.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "ST-003": {
+    "action": "Add mechanical guide pins and seating detection sensors to enforce proper component nesting.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "ST-004": {
+    "action": "Implement asymmetric nest geometry and orientation sensors to prevent reverse part loading.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "ST-005": {
+    "action": "Integrate barcode scanning on incoming component bins to verify variant compatibility before loading.",
+    "method": "Poka-yoke",
+    "owner_role": "Logistics"
+  },
+  "ST-006": {
+    "action": "Conduct 5-Why problem solving with suppliers and establish incoming component quality verification gates.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "ST-007": {
+    "action": "Incorporate regular station air blow-off and debris cleaning in the autonomous maintenance routine.",
+    "method": "Autonomous maintenance",
+    "owner_role": "Team leader"
+  },
+  "ST-008": {
+    "action": "Apply statistical process control on upstream machining processes to monitor dimensional drift.",
+    "method": "SPC",
+    "owner_role": "Process engineer"
+  },
+  "ST-009": {
+    "action": "Calibrate and zero measuring gauges against certified master parts before shift start.",
+    "method": "Calibration",
+    "owner_role": "Maintenance"
+  },
+  "ST-010": {
+    "action": "Inspect probe wiring and optimize probe travel cycle timeouts during preventive maintenance.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-011": {
+    "action": "Clean scanner lenses and recalibrate barcode reader contrast settings during autonomous maintenance.",
+    "method": "Autonomous maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-012": {
+    "action": "Service pneumatic actuators and clean gripper ejector pins on a preventive maintenance schedule.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-013": {
+    "action": "Optimize press actuator clearance and lubricate sliding guide rails during scheduled maintenance.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-014": {
+    "action": "Clean optical sensors and adjust proximity switch sensing distance in autonomous maintenance.",
+    "method": "Autonomous maintenance",
+    "owner_role": "Team leader"
+  },
+  "ST-015": {
+    "action": "Test sensor electrical signal continuity and replace failing sensors during preventive maintenance.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-016": {
+    "action": "Clean camera optics and verify vision illumination alignment during shift-start autonomous maintenance.",
+    "method": "Autonomous maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-017": {
+    "action": "Standardize tool change procedures and pre-set replacement tool sequences offline using SMED.",
+    "method": "SMED",
+    "owner_role": "Process engineer"
+  },
+  "ST-018": {
+    "action": "Lock recipe parameter configurations and establish standard work audits for machine parameters.",
+    "method": "Standard work",
+    "owner_role": "Process engineer"
+  },
+  "ST-019": {
+    "action": "Apply 5-Why analysis to identify failure modes causing premature test aborts.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "ST-020": {
+    "action": "Perform routine robot lubrication, controller diagnostics, and cable harness checks under preventive maintenance.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-021": {
+    "action": "Audit robot motion paths and retrain collision detection threshold parameters.",
+    "method": "Standard work",
+    "owner_role": "Process engineer"
+  },
+  "ST-022": {
+    "action": "Inspect, realign, and replace worn gripper jaw pads during preventive maintenance.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-023": {
+    "action": "Execute planned preventive maintenance to rebuild pneumatic cylinders and seals on the gripping unit.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-024": {
+    "action": "Clear zone boundary interlocks and standardize homing sequence recovery steps in standard work.",
+    "method": "Standard work",
+    "owner_role": "Process engineer"
+  },
+  "ST-025": {
+    "action": "Inspect mechanical brake pads and run automated brake test verification routines during preventive maintenance.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-026": {
+    "action": "Monitor press force curves in real time using SPC to detect incoming component dimensional variations.",
+    "method": "SPC",
+    "owner_role": "Process engineer"
+  },
+  "ST-027": {
+    "action": "Calibrate linear stroke transducers and inspect hard mechanical stops during preventive maintenance.",
+    "method": "Calibration",
+    "owner_role": "Maintenance"
+  },
+  "ST-028": {
+    "action": "Inspect press tooling guides for binding and verify hydraulic pressure stability.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-029": {
+    "action": "Install hardware over-travel limit switches and hard stops to poka-yoke the press stroke.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "ST-030": {
+    "action": "Re-zero assembly height measuring probes against standard gauge blocks at shift start.",
+    "method": "Calibration",
+    "owner_role": "Quality"
+  },
+  "ST-031": {
+    "action": "Add optical part-presence interlocks to prevent press cycle initiation when insert is missing.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "ST-032": {
+    "action": "Calibrate torque transducers on electric screwdrivers and track torque trends using SPC.",
+    "method": "Calibration",
+    "owner_role": "Maintenance"
+  },
+  "ST-033": {
+    "action": "Track angle-versus-torque tightening signatures with SPC monitoring to detect thread misalignment early.",
+    "method": "SPC",
+    "owner_role": "Process engineer"
+  },
+  "ST-034": {
+    "action": "Clean screw vibratory bowl tracks and inspect optical feed escapement sensors during autonomous maintenance.",
+    "method": "Autonomous maintenance",
+    "owner_role": "Team leader"
+  },
+  "ST-035": {
+    "action": "Standardize bit engagement speed and apply 5-Why analysis to examine screw coating and thread pitch quality.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "ST-036": {
+    "action": "Design mechanical feeder track baffles that physically reject mismatched screw sizes.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "ST-037": {
+    "action": "Inspect spindle start trigger signals and controller communication bus during preventive maintenance.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-038": {
+    "action": "Inspect, clean, and test camera lighting module intensity during autonomous maintenance at shift start.",
+    "method": "Autonomous maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-039": {
+    "action": "Standardize vision recipe selection linked directly to the line PLC product model code.",
+    "method": "Standard work",
+    "owner_role": "Process engineer"
+  },
+  "ST-040": {
+    "action": "Recalibrate vision inspection decision boundaries using certified golden master parts.",
+    "method": "Calibration",
+    "owner_role": "Quality"
+  },
+  "ST-041": {
+    "action": "Add mechanical part centering guides and verify lighting uniformity to ensure robust part localization.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "ST-042": {
+    "action": "Track test pressure decay curves with SPC to distinguish line seal degradation from part defects.",
+    "method": "SPC",
+    "owner_role": "Process engineer"
+  },
+  "ST-043": {
+    "action": "Inspect pneumatic supply pressure regulators and test chamber valves during preventive maintenance.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-044": {
+    "action": "Check pneumatic line couplers for leaks and replace worn pre-fill valves on a preventive schedule.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-045": {
+    "action": "Perform 5-Why analysis on test chamber pneumatic circuit fittings and valve seat tightness.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "ST-046": {
+    "action": "Perform periodic calibration of pressure sensors and inspect pneumatic sealing connections during preventive maintenance.",
+    "method": "Calibration",
+    "owner_role": "Maintenance"
+  },
+  "ST-047": {
+    "action": "Replace worn test nest sealing gaskets on a weekly preventive maintenance schedule.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "ST-048": {
+    "action": "Conduct 5-Why root cause investigation and define standard corrective action for unclassified downtime.",
+    "method": "5-Why",
+    "owner_role": "Team leader"
+  },
+  "Q-001": {
+    "action": "Install automated optical or mechanical presence sensors to poka-yoke component assembly.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "Q-002": {
+    "action": "Use barcode or vision verification on subcomponents before assembly to prevent wrong variant installation.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "Q-003": {
+    "action": "Investigate component packaging and dunnage handling with 5-Why analysis to eliminate transit damage.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "Q-004": {
+    "action": "Design mechanical locators and dowel pins in fixtures to guarantee element positioning.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "Q-005": {
+    "action": "Implement asymmetric physical nests that prevent reversed part orientation.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "Q-006": {
+    "action": "Apply SPC tracking to upstream machining tolerances and tooling wear rates.",
+    "method": "SPC",
+    "owner_role": "Process engineer"
+  },
+  "Q-007": {
+    "action": "Monitor cutting and stamping tool offsets with SPC control charts to prevent oversized parts.",
+    "method": "SPC",
+    "owner_role": "Process engineer"
+  },
+  "Q-008": {
+    "action": "Verify and adjust precision alignment of fixture locating pins during preventive maintenance.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "Q-009": {
+    "action": "Cover robot contact points and conveyor nests with protective polyurethane pads during autonomous maintenance.",
+    "method": "Autonomous maintenance",
+    "owner_role": "Team leader"
+  },
+  "Q-010": {
+    "action": "Conduct 5-Why investigation into material handling forces and press clamp geometries.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "Q-011": {
+    "action": "Enforce standard packaging storage conditions and maximum warehouse exposure time limits.",
+    "method": "Standard work",
+    "owner_role": "Logistics"
+  },
+  "Q-012": {
+    "action": "Trigger 5-Why problem solving with the raw casting supplier to address internal casting stresses.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "Q-013": {
+    "action": "Inspect and replace deburring tools on a fixed preventive maintenance schedule.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "Q-014": {
+    "action": "Establish standardized station wash and air blow-off cleaning intervals in autonomous maintenance.",
+    "method": "Autonomous maintenance",
+    "owner_role": "Team leader"
+  },
+  "Q-015": {
+    "action": "Standardize insertion motion instructions and introduce guided tooling fixtures.",
+    "method": "Standard work",
+    "owner_role": "Process engineer"
+  },
+  "Q-016": {
+    "action": "Install acoustic or optical click-verification sensors to poka-yoke connector latching.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "Q-017": {
+    "action": "Calibrate laser marking power and verify dot peen stylus wear at shift start.",
+    "method": "Calibration",
+    "owner_role": "Maintenance"
+  },
+  "Q-018": {
+    "action": "Implement automated traceability handshakes between station PLC and MES before releasing parts.",
+    "method": "Standard work",
+    "owner_role": "Process engineer"
+  },
+  "Q-019": {
+    "action": "Conduct 5-Why root cause analysis to classify and address rare non-conformances.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "Q-020": {
+    "action": "Implement continuous press force and stroke position monitoring with an automated SPC alarm.",
+    "method": "SPC",
+    "owner_role": "Process engineer"
+  },
+  "Q-021": {
+    "action": "Calibrate press depth transducers and inspect positive physical depth stops.",
+    "method": "Calibration",
+    "owner_role": "Maintenance"
+  },
+  "Q-022": {
+    "action": "Track post-press height measurements on an SPC control chart to catch assembly drift.",
+    "method": "SPC",
+    "owner_role": "Process engineer"
+  },
+  "Q-023": {
+    "action": "Optimize press approach velocities and inspect press tooling alignment during preventive maintenance.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "Q-024": {
+    "action": "Apply 5-Why analysis to examine surface flatness and parallelism of mating press faces.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "Q-025": {
+    "action": "Poka-yoke screwdriving by interlocking cycle completion with screw-feed counter signals.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "Q-026": {
+    "action": "Calibrate and verify electric screwdriver torque and angle settings at the start of every shift.",
+    "method": "Calibration",
+    "owner_role": "Maintenance"
+  },
+  "Q-027": {
+    "action": "Standardize screwdriving rundown speed and verify incoming component thread tap quality.",
+    "method": "Standard work",
+    "owner_role": "Process engineer"
+  },
+  "Q-028": {
+    "action": "Install physical screw sort baffles and optical diameter verifiers in the feed track.",
+    "method": "Poka-yoke",
+    "owner_role": "Process engineer"
+  },
+  "Q-029": {
+    "action": "Inspect screwdriver drive bits for wear and replace them systematically during preventive maintenance.",
+    "method": "Preventive maintenance",
+    "owner_role": "Maintenance"
+  },
+  "Q-030": {
+    "action": "Tune camera inspection detection thresholds and retrain image models to eliminate false rejections.",
+    "method": "Calibration",
+    "owner_role": "Quality"
+  },
+  "Q-031": {
+    "action": "Conduct 5-Why root cause analysis on component sealing surfaces and supplier gasket tolerances.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "Q-032": {
+    "action": "Check sealing connector clamps and inspect component casting porosity using 5-Why analysis.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "Q-033": {
+    "action": "Calibrate thermal stabilization timers and verify internal volume fill parameters.",
+    "method": "Calibration",
+    "owner_role": "Process engineer"
+  },
+  "Q-034": {
+    "action": "Perform 5-Why root cause problem solving for unclassified quality defects and update reaction plans.",
+    "method": "5-Why",
+    "owner_role": "Quality"
+  },
+  "slow_hour_1": {
+    "action": "Complete autonomous maintenance checks and stage all necessary components prior to shift kickoff.",
+    "method": "Autonomous maintenance",
+    "owner_role": "Team leader"
+  },
+  "slow_hour_5": {
+    "action": "Ensure assembly line carriers and buffer materials are staged before the break concludes to enable immediate standard ramp-up.",
+    "method": "Standard work",
+    "owner_role": "Team leader"
+  },
+  "microstop": {
+    "action": "Standardize cycle pacing and clear material feed path obstructions to prevent conveyor micro-stoppages.",
+    "method": "Standard work",
+    "owner_role": "Process engineer"
+  },
+  "retest": {
+    "action": "Refine vision inspection tolerances and part positioning fixtures to minimize camera retest cycles.",
+    "method": "Poka-yoke",
+    "owner_role": "Quality"
+  }
+}
