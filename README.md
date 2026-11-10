@@ -29,7 +29,7 @@ Shared context, formulas and API contract: [CONTRACT.md](CONTRACT.md). Data: `da
 ## Getting started
 
 ```bash
-git clone https://github.com/Heek1/magna-oee-engine.git
-cd magna-oee-engine
+git clone https://github.com/Heek1/magna-hackathon-2026.git
+cd magna-hackathon-2026
 git checkout <your-branch>
 ```
