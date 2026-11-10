@@ -6,17 +6,18 @@ import { Panel } from "@/components/Panel";
 import { LossWaterfall } from "@/components/charts/LossWaterfall";
 import { HourlyOutputChart } from "@/components/charts/HourlyOutputChart";
 import { kpiTargets } from "@/theme/tokens";
+import { pcs } from "@/lib/format";
 import { InsightFeed } from "./InsightFeed";
 
 export default function LivePage() {
   const { data: state, loading, error } = useSimState();
   const shift = state?.shift;
-  const losses = useLosses({ from: shift?.date ?? "", to: shift?.date ?? "" });
+  const losses = useLosses({ from: shift?.date, to: shift?.date });
   const insights = useInsights();
 
   const recommendation = useMemo(() => {
     const code = state?.active_downtime?.code;
-    return code ? insights.data?.find((i) => i.code === code)?.recommendation.action : undefined;
+    return code ? insights.data?.find((i) => i.code === code)?.recommendation?.action : undefined;
   }, [state?.active_downtime?.code, insights.data]);
 
   const blockState = error ? "error" : loading || !shift ? "loading" : shift.plan_min === 0 ? "empty" : "ready";
@@ -35,25 +36,25 @@ export default function LivePage() {
               primary
               value={shift.oee}
               target={shift.target}
-              hint={`${shift.ok} of ${shift.plan_min} pcs`}
+              hint={`${pcs(shift.ok)} of ${pcs(shift.plan_min)} pcs`}
             />
             <KpiCard
               label="Availability"
               value={shift.availability}
               target={kpiTargets.availability}
-              hint={`${shift.downtime_min} min down`}
+              hint={`${pcs(shift.downtime_min)} min down`}
             />
             <KpiCard
               label="Performance"
               value={shift.performance}
               target={kpiTargets.performance}
-              hint={`${shift.produced} / ${shift.run_min} pcs`}
+              hint={`${pcs(shift.produced)} / ${pcs(shift.run_min)} pcs`}
             />
             <KpiCard
               label="Quality"
               value={shift.quality}
               target={kpiTargets.quality}
-              hint={`${shift.nok} NOK`}
+              hint={`${pcs(shift.nok)} NOK`}
             />
           </>
         ) : (

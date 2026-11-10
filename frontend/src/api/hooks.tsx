@@ -1,6 +1,6 @@
 /**
  * Data layer. Pages and components get data ONLY through these hooks.
- * Stage 1: backed by mocks (src/mocks) and a local simulation clock.
+ * Stage 1: backed by mocks (src/mocks, dumped from the real backend) and a local simulation clock.
  * Stage 2: same hook signatures, backed by /api/stream and the REST endpoints.
  */
 import {
@@ -14,8 +14,8 @@ import {
   type Context,
   type ReactNode,
 } from "react";
-import type { Action, ActionStatus, Insight, Loss, SimState } from "@/types/api";
-import { mockInsights, mockLosses, mockState } from "@/mocks";
+import type { Action, ActionStatus, HeatmapCell, HeatmapMetric, HistoryPoint, Insight, Loss, SimState } from "@/types/api";
+import { mockActions, mockHeatmap, mockHistory, mockInsights, mockLosses, mockSimControl, mockState } from "@/mocks";
 import { parseTime, toIso } from "@/lib/format";
 
 /** Uniform async shape for every hook, so every Panel can show loading / empty / error. */
@@ -25,7 +25,8 @@ export interface Resource<T> {
   error: string | null;
 }
 
-export const SPEEDS = [1, 10, 60, 300] as const;
+/** Simulator speed multipliers; backend default is 60 (1 real second = 1 simulated minute). */
+export const SPEEDS = [1, 10, 60, 120, 300] as const;
 
 interface ClockValue {
   now: Date;
@@ -40,7 +41,7 @@ interface ControlValue {
 
 interface ActionsValue extends Resource<Action[]> {
   createAction: (insight: Insight) => Promise<Action>;
-  updateStatus: (id: string, status: ActionStatus) => Promise<void>;
+  updateStatus: (id: number, status: ActionStatus) => Promise<void>;
 }
 
 const ActionsCtx = createContext<ActionsValue | null>(null);
@@ -52,8 +53,8 @@ const TICK_MS = 250;
 
 export function SimProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SimState>(mockState);
-  const [speed, setSpeed] = useState<number>(1);
-  const [paused, setPaused] = useState(false);
+  const [speed, setSpeed] = useState<number>(mockSimControl.speed);
+  const [paused, setPaused] = useState(mockSimControl.paused);
   const [now, setNow] = useState(() => parseTime(mockState.sim_time));
   const nowRef = useRef(now);
   nowRef.current = now;
@@ -82,20 +83,27 @@ export function SimProvider({ children }: { children: ReactNode }) {
   const resource = useMemo<Resource<SimState>>(() => ({ data: state, loading: false, error: null }), [state]);
 
   // Actions (mock: in memory; stage 2: POST /api/actions, PATCH /api/actions/{id}).
-  const [actionList, setActionList] = useState<Action[]>([]);
+  // Body sent on POST: {title, insight_id, owner, status}; the server assigns id and created_at.
+  const [actionList, setActionList] = useState<Action[]>(mockActions);
+  const actionsRef = useRef(actionList);
+  actionsRef.current = actionList;
   const createAction = useCallback((insight: Insight) => {
+    const list = actionsRef.current;
+    const existing = list.find((a) => a.insight_id === insight.id);
+    if (existing) return Promise.resolve(existing);
     const action: Action = {
-      id: `act-${insight.id}`,
+      id: Math.max(0, ...list.map((a) => a.id)) + 1,
       insight_id: insight.id,
-      title: insight.recommendation.action,
-      owner: insight.recommendation.owner_role,
+      title: insight.recommendation?.action ?? insight.title,
+      owner: insight.recommendation?.owner_role ?? null,
       status: "open",
-      created_at: toIso(nowRef.current),
+      created_at: new Date().toISOString(),
     };
-    setActionList((list) => (list.some((a) => a.insight_id === insight.id) ? list : [...list, action]));
+    actionsRef.current = [...list, action];
+    setActionList(actionsRef.current);
     return Promise.resolve(action);
   }, []);
-  const updateStatus = useCallback((id: string, status: ActionStatus) => {
+  const updateStatus = useCallback((id: number, status: ActionStatus) => {
     setActionList((list) => list.map((a) => (a.id === id ? { ...a, status } : a)));
     return Promise.resolve();
   }, []);
@@ -141,9 +149,20 @@ export function useInsights(): Resource<Insight[]> {
   return { data: mockInsights, loading: false, error: null };
 }
 
-/** GET /api/losses?from&to */
-export function useLosses(_params: { from: string; to: string }): Resource<Loss[]> {
+/** GET /api/losses?from&to (dates optional — omitted means everything up to sim_time). */
+export function useLosses(_params: { from?: string; to?: string }): Resource<Loss[]> {
   return { data: mockLosses, loading: false, error: null };
+}
+
+/** GET /api/history?from&to */
+export function useHistory(_params: { from?: string; to?: string }): Resource<HistoryPoint[]> {
+  return { data: mockHistory, loading: false, error: null };
+}
+
+/** GET /api/heatmap?metric */
+export function useHeatmap(metric: HeatmapMetric): Resource<HeatmapCell[]> {
+  // The dump only has metric=oee; other metrics come with the real API in stage 2.
+  return { data: metric === "oee" ? mockHeatmap : [], loading: false, error: null };
 }
 
 /** GET/POST /api/actions, PATCH /api/actions/{id} — shared across pages. */

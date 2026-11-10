@@ -1,12 +1,27 @@
 /**
- * Stage-1 mocks: a real snapshot from data/oee.xlsx —
- * Wed 2026-11-25 09:14, hours 1–3 complete, ST-038 (camera light module) active since 09:08.
+ * Mocks. The *.json files (except insights.sample.json) are dumped from the real backend by
+ * backend/scripts/dump_mocks.py — snapshot Wed 2026-11-25 09:20, ST-038 active since 09:08.
+ *
+ * insights.sample.json: contract-shaped example insights (prediction, recurring stop, …) used
+ * while backend/insights is still a stub, so the insight feed can be built and shown.
  */
-import type { Insight, Loss, SimState } from "@/types/api";
+import type { Action, HeatmapCell, HistoryPoint, Insight, Loss, SimControlState, SimState, WhatIfResponse } from "@/types/api";
 import state from "./state.json";
 import losses from "./losses.json";
-import insights from "./insights.json";
+import insightsStub from "./insights.json";
+import insightsSample from "./insights.sample.json";
+import actions from "./actions.json";
+import simControl from "./sim_control.json";
+import history from "./history.json";
+import heatmap from "./heatmap.json";
+import whatif from "./whatif.json";
 
 export const mockState = state as SimState;
 export const mockLosses = losses as Loss[];
-export const mockInsights = insights as Insight[];
+export const mockInsightsStub = insightsStub as unknown as Insight[];
+export const mockInsights = insightsSample as Insight[];
+export const mockActions = actions as Action[];
+export const mockSimControl = simControl as SimControlState;
+export const mockHistory = history as HistoryPoint[];
+export const mockHeatmap = heatmap as HeatmapCell[];
+export const mockWhatIf = whatif as WhatIfResponse;

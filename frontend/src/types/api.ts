@@ -1,4 +1,8 @@
-/** Types mirror CONTRACT.md 1:1. Do not change without the team lead. */
+/**
+ * Types mirror CONTRACT.md and what backend/app/main.py actually returns
+ * (see the dumped mocks in src/mocks). Do not change without the team lead.
+ * Piece counts can be fractional: the current hour is pro-rated up to sim_time.
+ */
 
 /** ISO datetime in plant local time, e.g. "2026-11-25T09:14:00". */
 export type IsoDateTime = string;
@@ -7,7 +11,7 @@ export type IsoDate = string;
 
 export interface ShiftKpis {
   date: IsoDate;
-  hour: number; // 1..8
+  hour: number; // 1..8, the hour running now (may be partial)
   plan_min: number;
   run_min: number;
   downtime_min: number;
@@ -77,11 +81,13 @@ export interface Insight {
   severity: Severity;
   title: string;
   evidence: string;
-  code: string;
+  /** null while backend/insights is a stub. */
+  code: string | null;
   loss_pcs: number;
   loss_pp: number;
   expected_at: IsoDateTime | null;
-  recommendation: Recommendation;
+  /** null while backend/insights is a stub. */
+  recommendation: Recommendation | null;
 }
 
 export interface WhatIfRequest {
@@ -98,16 +104,41 @@ export interface WhatIfResponse {
 
 export type ActionStatus = "open" | "in_progress" | "done";
 export interface Action {
-  id: string;
-  insight_id: string;
+  id: number;
+  insight_id: string | null;
   title: string;
-  owner: string;
+  owner: string | null;
   status: ActionStatus;
-  created_at: IsoDateTime;
+  created_at: IsoDateTime; // real time with zone, e.g. "2026-11-10T16:00:43+00:00"
 }
 
+/** POST /api/actions body. */
+export interface ActionCreate {
+  title: string;
+  insight_id?: string | null;
+  owner?: string | null;
+  status?: ActionStatus;
+}
+
+/** POST /api/sim/control body. */
 export interface SimControl {
   speed?: number;
   jump_to?: IsoDateTime;
   paused?: boolean;
+}
+
+/** POST /api/sim/control response. */
+export interface SimControlState {
+  sim_time: IsoDateTime;
+  speed: number;
+  paused: boolean;
+}
+
+export interface Report {
+  date: IsoDate;
+  kpis: Omit<ShiftKpis, "date" | "hour">;
+  top_losses: Loss[];
+  insights: Insight[];
+  actions: Action[];
+  summary: string;
 }

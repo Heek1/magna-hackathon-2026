@@ -8,7 +8,10 @@ import { pcs, signed } from "@/lib/format";
 export interface LossWaterfallProps {
   /** Totals for the period (shift so far, a day, …). */
   kpis: Pick<ShiftKpis, "plan_min" | "downtime_min" | "run_min" | "produced" | "nok" | "ok">;
-  /** Optional: used to split the speed loss in the tooltip (microstop / retest / slowdown). */
+  /**
+   * Optional losses for the SAME period: used to split the speed loss in the tooltip
+   * (microstop / retest / slowdown). Ignored if they do not add up to the speed loss.
+   */
   losses?: Loss[];
   className?: string;
 }
@@ -26,9 +29,11 @@ export function LossWaterfall({ kpis, losses, className }: LossWaterfallProps) {
     const good = kpis.ok;
     const ppOf = (n: number) => (ideal > 0 ? (n / ideal) * 100 : 0);
 
-    const speedParts = (losses ?? [])
+    const parts = (losses ?? [])
       .filter((l) => l.type === "microstop" || l.type === "retest" || l.type === "slowdown")
       .map((l) => ({ name: l.description, value: l.loss_pcs }));
+    const partsSum = parts.reduce((s, p) => s + p.value, 0);
+    const speedParts = Math.abs(partsSum - (kpis.run_min - kpis.produced)) < 0.5 ? parts : [];
 
     const cats = ["Ideal", "Downtime", "Speed", "Scrap", "Good"];
     const values = [ideal, downtime, speed, scrap, good];

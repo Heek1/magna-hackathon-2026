@@ -50,7 +50,7 @@ export function InsightCard({ insight, pinned, onCreateAction, actionCreated, cl
       <header className="flex items-center gap-2">
         <KindIcon className="h-4 w-4 text-muted" aria-hidden />
         <span className="label">{kindLabel}</span>
-        <span className="num text-xs text-dim">{insight.code}</span>
+        {insight.code && <span className="num text-xs text-dim">{insight.code}</span>}
         <StatusBadge status={severityStatus[insight.severity]} className="ml-auto">
           {severityLabel[insight.severity]}
         </StatusBadge>
@@ -78,17 +78,19 @@ export function InsightCard({ insight, pinned, onCreateAction, actionCreated, cl
       <dl className="grid grid-cols-3 gap-2 border-y py-2">
         <Metric label="Loss" value={`${pcs(insight.loss_pcs)}`} unit="pcs" />
         <Metric label="OEE impact" value={insight.loss_pp.toFixed(2)} unit="pp" />
-        <Metric label="Gain" value={`+${pcs(rec.expected_gain_pcs)}`} unit="pcs" tone="text-ok" />
+        {rec && <Metric label="Gain" value={`+${pcs(rec.expected_gain_pcs)}`} unit="pcs" tone="text-ok" />}
       </dl>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="label">Countermeasure</span>
-        <p className="text-sm leading-snug text-text/90">{rec.action}</p>
-        <div className="flex flex-wrap gap-1.5 text-xs text-muted">
-          <span className="rounded border px-1.5 py-0.5">{rec.method}</span>
-          <span className="rounded border px-1.5 py-0.5">{rec.owner_role}</span>
+      {rec && (
+        <div className="flex flex-col gap-1.5">
+          <span className="label">Countermeasure</span>
+          <p className="text-sm leading-snug text-text/90">{rec.action}</p>
+          <div className="flex flex-wrap gap-1.5 text-xs text-muted">
+            <span className="rounded border px-1.5 py-0.5">{rec.method}</span>
+            <span className="rounded border px-1.5 py-0.5">{rec.owner_role}</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {onCreateAction &&
         (actionCreated ? (

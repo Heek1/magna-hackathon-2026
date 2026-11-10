@@ -24,9 +24,10 @@ export function ppDelta(value: number, target: number, digits = 1): string {
   return `${signed((value - target) * 100, digits)} pp`;
 }
 
-/** Pieces, integer unless fractional data: 9.62 → "9.6", 138 → "138" */
+/** Pieces (can be fractional for the running hour): 9.62 → "9.6", 138 → "138", 190.0 → "190" */
 export function pcs(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  const r = Math.round(value * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
 }
 
 /** Parse a contract datetime (plant local time, no zone). */

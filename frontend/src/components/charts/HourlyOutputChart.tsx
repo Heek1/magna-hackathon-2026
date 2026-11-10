@@ -3,7 +3,7 @@ import type { ShiftKpis } from "@/types/api";
 import { EChart } from "@/components/charts/EChart";
 import { colors, fonts } from "@/theme/tokens";
 import { tooltipRow } from "@/theme/echarts";
-import { hourLabel } from "@/lib/format";
+import { hourLabel, pcs } from "@/lib/format";
 
 export interface HourlyOutputChartProps {
   hours: ShiftKpis[];
@@ -31,8 +31,10 @@ export function HourlyOutputChart({
     const byHour = new Map(hours.map((h) => [h.hour, h]));
     const ok = HOURS.map((h) => byHour.get(h)?.ok ?? null);
     const nok = HOURS.map((h) => byHour.get(h)?.nok ?? null);
+    // Past downtime per hour; the running hour is marked by the pulsing STOP instead while stopped.
     const stops = HOURS.flatMap((h, i) => {
       const k = byHour.get(h);
+      if (stoppedNow && h === currentHour) return [];
       return k && k.downtime_min > 0 ? [{ i, k }] : [];
     });
     const maxY = Math.max(idealPerHour, ...hours.map((h) => h.produced)) + 14;
@@ -50,10 +52,11 @@ export function HourlyOutputChart({
           const k = byHour.get(HOURS[i]);
           let html = `<div style="font-weight:600;margin-bottom:4px">${hourLabel(HOURS[i])}–${hourLabel(HOURS[i] + 1)}</div>`;
           if (!k) return html + `<span style="color:${colors.dim}">Not produced yet</span>`;
-          html += tooltipRow("Produced", `${k.produced} pcs`, colors.data);
-          html += tooltipRow("NOK", `${k.nok} pcs`, colors.warn);
-          html += tooltipRow("Plan", `${k.plan_min} min`);
-          if (k.downtime_min > 0) html += tooltipRow("Downtime", `${k.downtime_min} min`, colors.warn);
+          const running = HOURS[i] === currentHour;
+          html += tooltipRow("Produced", `${pcs(k.produced)} pcs`, colors.data);
+          html += tooltipRow("NOK", `${pcs(k.nok)} pcs`, colors.warn);
+          html += tooltipRow(running ? "Plan so far" : "Plan", `${pcs(k.plan_min)} min`);
+          if (k.downtime_min > 0) html += tooltipRow("Downtime", `${pcs(k.downtime_min)} min`, colors.warn);
           html += tooltipRow("OEE", `${(k.oee * 100).toFixed(1)} %`);
           return html;
         },
@@ -96,7 +99,7 @@ export function HourlyOutputChart({
             color: colors.text,
             formatter: ({ dataIndex }: { dataIndex: number }) => {
               const k = byHour.get(HOURS[dataIndex]);
-              return k ? String(k.produced) : "";
+              return k ? pcs(k.produced) : "";
             },
           },
         },
@@ -116,7 +119,7 @@ export function HourlyOutputChart({
             fontFamily: mono,
             fontSize: 12,
             color: colors.warn,
-            formatter: ({ dataIndex }: { dataIndex: number }) => `${stops[dataIndex].k.downtime_min} min`,
+            formatter: ({ dataIndex }: { dataIndex: number }) => `${pcs(stops[dataIndex].k.downtime_min)} min`,
           },
           tooltip: { show: false },
           z: 5,
