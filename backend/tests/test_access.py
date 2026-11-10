@@ -46,3 +46,10 @@ def test_key_from_env_is_trimmed(monkeypatch):
     # A value pasted with a trailing newline must still match the QR link.
     c = make(" s3cret\r\n".strip())
     assert c.get("/", params={"key": "s3cret"}, follow_redirects=False).status_code == 303
+
+
+def test_health_is_public_when_locked():
+    from app.main import app as real_app
+    from app import access as acc
+    assert "/api/health" in acc.PUBLIC_PATHS
+    assert TestClient(real_app).get("/api/health").json() == {"ok": True}

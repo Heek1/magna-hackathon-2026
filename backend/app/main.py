@@ -74,6 +74,12 @@ def _english(active: dict | None) -> dict | None:
     return {**active, "device": errors.device_en(active["device"])} if active else None
 
 
+@app.get("/api/health", include_in_schema=False)
+def health():
+    """Liveness for the hosting health check; public even with ACCESS_KEY."""
+    return {"ok": True}
+
+
 @app.get("/api/state")
 def get_state():
     return build_state()

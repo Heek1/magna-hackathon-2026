@@ -16,7 +16,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 COOKIE = "oee_access"
 MAX_AGE = 60 * 60 * 24 * 60  # 60 days
 # Files the browser fetches without cookies to install the PWA; they reveal nothing.
-PUBLIC_PATHS = {"/manifest.webmanifest", "/pwa-192.png", "/pwa-512.png", "/apple-touch-icon.png", "/favicon.ico"}
+# /api/health is for the hosting platform's health check and answers only {"ok": true}.
+PUBLIC_PATHS = {"/api/health", "/manifest.webmanifest", "/pwa-192.png", "/pwa-512.png", "/apple-touch-icon.png", "/favicon.ico"}
 
 LOCKED_PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
