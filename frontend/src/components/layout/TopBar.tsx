@@ -3,6 +3,7 @@ import { SimControls } from "@/components/layout/SimControls";
 import { ShiftIndicator } from "@/components/layout/ShiftIndicator";
 import { StatusBadge } from "@/components/StatusBadge";
 import { dayLabel, hhmmss } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 /** Header: simulation time, controls, shift indicator, line status. */
 export function TopBar({ title }: { title: string }) {
@@ -13,15 +14,28 @@ export function TopBar({ title }: { title: string }) {
   const stopped = !!data?.active_downtime;
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-8 border-b bg-bg px-6">
-      <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+    <header className="flex h-[72px] shrink-0 items-center gap-6 border-b bg-bg px-6">
+      <h1 className="w-28 text-xl font-semibold tracking-tight">{title}</h1>
+      <Divider />
 
-      <div className="flex items-baseline gap-3">
-        <span className="label">Sim time</span>
-        <span className="num text-sm text-muted">{data ? dayLabel(now) : ""}</span>
-        <span className="num text-num-md font-medium text-text">{data ? hhmmss(now) : "--:--:--"}</span>
-        <span className="label text-dim">{paused ? "Paused" : `${speed}×`}</span>
+      <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-1">
+          <span className="label">Simulation</span>
+          <span className="num text-sm text-muted">{data ? dayLabel(now) : "—"}</span>
+        </div>
+        <span className="num text-[32px] font-medium leading-none tracking-tight text-text">
+          {data ? hhmmss(now) : "--:--:--"}
+        </span>
+        <span
+          className={cn(
+            "num rounded border px-1.5 py-0.5 text-xs",
+            paused ? "border-warn/50 text-warn" : "border-border-strong text-muted",
+          )}
+        >
+          {paused ? "Paused" : `${speed}×`}
+        </span>
       </div>
+      <Divider />
 
       <ShiftIndicator />
 
@@ -46,4 +60,8 @@ export function TopBar({ title }: { title: string }) {
       </div>
     </header>
   );
+}
+
+function Divider() {
+  return <span className="h-9 w-px bg-border" aria-hidden />;
 }
