@@ -6,10 +6,10 @@ Shared context, formulas and API contract: [CONTRACT.md](CONTRACT.md). Data: `da
 
 | Member | Branch | Owned folders | Task |
 |---|---|---|---|
-| 1 — Backend core | `feat/backend-core` | `backend/` (except `backend/insights/`) | [docs/tasks/1-backend-core.md](docs/tasks/1-backend-core.md) |
+| 1 — Backend core + Top errors, Error detail, Fixes screens | `feat/backend-core` | `backend/` (except `backend/insights/`), `frontend/src/pages/analysis`, `frontend/src/pages/actions` | [docs/tasks/1-backend-core.md](docs/tasks/1-backend-core.md) |
 | 2 — Insights | `feat/insights` | `backend/insights/` (except `countermeasures.json`) | [docs/tasks/2-insights.md](docs/tasks/2-insights.md) |
 | 3 — Frontend + Live | `feat/frontend-live` | `frontend/` (except `src/pages/analysis` and `src/pages/actions`) | [docs/tasks/3-frontend-live.md](docs/tasks/3-frontend-live.md) |
-| 4 — KB, Analysis, QA | `feat/kb-analysis-qa` | `backend/insights/countermeasures.json`, `frontend/src/pages/analysis`, `frontend/src/pages/actions`, `docs/pitch.md` | [docs/tasks/4-kb-analysis-qa.md](docs/tasks/4-kb-analysis-qa.md) |
+| 4 — Knowledge base, pitch | `feat/kb-analysis-qa` | `backend/insights/countermeasures.json`, `docs/pitch.md` | [docs/tasks/4-kb-analysis-qa.md](docs/tasks/4-kb-analysis-qa.md) |
 
 ## Rules
 

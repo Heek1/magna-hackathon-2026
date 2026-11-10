@@ -79,7 +79,7 @@ three screens; keep it only if the desktop view uses it.
 - Two KPI cards: `OeeRing` (shift OEE vs 85 %) and "Lost today" in pieces (ideal − good).
 - "Errors today": `EventRow` list from `GET /api/events`, newest first. Tap → Error detail.
 
-### 02 Top errors — `frontend/src/pages/analysis` (member 4)
+### 02 Top errors — `frontend/src/pages/analysis` (member 1)
 
 - Overline `NOVEMBER · BY PIECES LOST`, title "Top errors".
 - `SegmentedControl`: Stops = `type downtime`, Defects = `nok`, Speed = `microstop|retest|slowdown`.
@@ -88,7 +88,7 @@ three screens; keep it only if the desktop view uses it.
 - "Next to fix": the rest as `RankRow`, bar width = loss / loss of #1. Tap → Error detail.
 - Data: `GET /api/losses` (with the new `fix` field) for the selected period.
 
-### 03 Error detail — `frontend/src/pages/analysis/ErrorDetail` (member 4)
+### 03 Error detail — `frontend/src/pages/analysis/ErrorDetail` (member 1)
 
 - Back button, tone chip, code as the title, description below.
 - Three stat cards: times, minutes stopped (or pieces scrapped for defects), pieces lost.
@@ -97,7 +97,7 @@ three screens; keep it only if the desktop view uses it.
 - Sticky `BottomBar`: "Create action for {owner_role}" → `POST /api/actions`.
 - Data: `GET /api/errors/{code}`.
 
-### Fixes — `frontend/src/pages/actions` (member 4)
+### Fixes — `frontend/src/pages/actions` (member 1)
 
 The existing board as a single list on phones: segmented Open / In progress / Done, cards with
 owner, linked error and expected gain. Three columns stay on desktop.
@@ -117,10 +117,9 @@ site can be installed to the home screen and opens full-screen. No native app.
 
 | Member | Work |
 |---|---|
-| 1 · backend | `GET /api/events`, `GET /api/errors/{code}`, `fix` on `/api/losses` (see CONTRACT.md); regenerate mocks |
+| 1 · backend + screens | new endpoints (done); Top errors, Error detail and Fixes screens using only the shared components and tokens; QA run on a phone and at 1920×1080 |
 | 2 · insights | no UI change; the Now hero and detail pattern can reuse `recurring_stop` / `prediction` insights |
 | 3 · frontend | tokens, fonts, components above, app shell (tab bar / desktop nav), Now screen, PWA, real API instead of mocks |
-| 4 · analysis | Top errors, Error detail and Fixes screens using only the shared components and tokens |
+| 4 · knowledge base, pitch | translate `docs/pitch.md` to English and update its demo slide to the mobile app |
 
-Order: member 3 ships tokens and components first (they block member 4); member 1 ships the new
-endpoints and mocks in parallel.
+Order: member 3 ships tokens and components first (they block member 1's screens).
