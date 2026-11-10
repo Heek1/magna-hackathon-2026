@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import type { Insight, Severity } from "@/types/api";
-import { useActions, useInsights } from "@/api/hooks";
+import { resourceState, useActions, useInsights } from "@/api/hooks";
 import { InsightCard } from "@/components/InsightCard";
-import { Panel } from "@/components/Panel";
+import { StateView } from "@/components/Panel";
+import { errorText } from "@/api/client";
 
 const severityRank: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
 
@@ -18,39 +19,37 @@ export function sortInsights(list: Insight[]): { pinned: Insight[]; rest: Insigh
   return { pinned, rest };
 }
 
-export function InsightFeed({ className }: { className?: string }) {
+/** Insight feed content (inside the Live right rail). */
+export function InsightFeed() {
   const insights = useInsights();
   const actions = useActions();
+  const [createError, setCreateError] = useState<string | null>(null);
   const { pinned, rest } = useMemo(() => sortInsights(insights.data ?? []), [insights.data]);
   const created = useMemo(() => new Set((actions.data ?? []).map((a) => a.insight_id)), [actions.data]);
-  const count = (insights.data ?? []).length;
 
-  const state = insights.error ? "error" : insights.loading ? "loading" : count === 0 ? "empty" : "ready";
+  const create = (i: Insight) => {
+    setCreateError(null);
+    actions.createAction(i).catch((e) => setCreateError(`Could not create action: ${errorText(e)}`));
+  };
 
   return (
-    <Panel
-      title="Insights"
-      meta={count > 0 ? `${count} open` : undefined}
-      state={state}
+    <StateView
+      state={resourceState(insights)}
       emptyText="No findings yet — the engine is watching"
       errorText={insights.error}
-      className={className}
-      bodyClassName="flex flex-col gap-3 overflow-y-auto p-3"
     >
+      {createError && <p className="rounded border border-crit/50 px-3 py-2 text-sm text-crit">{createError}</p>}
       <AnimatePresence initial={false}>
-        {pinned.map((i) => (
+        {[...pinned, ...rest].map((i) => (
           <InsightCard
             key={i.id}
             insight={i}
-            pinned
+            pinned={pinned.includes(i)}
             actionCreated={created.has(i.id)}
-            onCreateAction={actions.createAction}
+            onCreateAction={create}
           />
         ))}
-        {rest.map((i) => (
-          <InsightCard key={i.id} insight={i} actionCreated={created.has(i.id)} onCreateAction={actions.createAction} />
-        ))}
       </AnimatePresence>
-    </Panel>
+    </StateView>
   );
 }
