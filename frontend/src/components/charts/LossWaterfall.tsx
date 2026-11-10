@@ -93,6 +93,17 @@ export function LossWaterfall({ kpis, losses, className }: LossWaterfallProps) {
               pp: { fontFamily: fonts.mono.join(","), fontSize: 11, color: colors.muted, padding: [2, 0, 0, 0] },
             },
           },
+          // Step connectors: the level each bar ends at carries over to the next one.
+          markLine: {
+            silent: true,
+            symbol: "none",
+            label: { show: false },
+            lineStyle: { color: colors.dim, type: [3, 3], width: 1 },
+            data: [ideal, ideal - downtime, ideal - downtime - speed, good].map((level, i) => [
+              { coord: [i, level] },
+              { coord: [i + 1, level] },
+            ]),
+          },
         },
       ],
     };

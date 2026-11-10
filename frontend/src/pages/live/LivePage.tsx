@@ -29,7 +29,7 @@ export default function LivePage() {
         <DowntimeBanner downtime={state?.active_downtime ?? null} recommendation={recommendation} />
       </div>
 
-      <div className="col-start-1 row-start-2 grid grid-cols-4 gap-4">
+      <div className="col-start-1 row-start-2 grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4">
         {shift && blockState !== "empty" ? (
           <>
             <KpiCard
@@ -37,24 +37,27 @@ export default function LivePage() {
               primary
               value={shift.oee}
               target={shift.target}
-              hint={`${pcs(shift.ok)} of ${pcs(shift.plan_min)} pcs`}
+              hint={gapHint(shift.ok, shift.plan_min, shift.target)}
             />
             <KpiCard
               label="Availability"
               value={shift.availability}
               target={kpiTargets.availability}
+              range={[0.7, 1]}
               hint={`${pcs(shift.downtime_min)} min down`}
             />
             <KpiCard
               label="Performance"
               value={shift.performance}
               target={kpiTargets.performance}
+              range={[0.7, 1]}
               hint={`${pcs(shift.produced)} / ${pcs(shift.run_min)} pcs`}
             />
             <KpiCard
               label="Quality"
               value={shift.quality}
               target={kpiTargets.quality}
+              range={[0.9, 1]}
               hint={`${pcs(shift.nok)} NOK`}
             />
           </>
@@ -104,4 +107,10 @@ export default function LivePage() {
       </div>
     </div>
   );
+}
+
+/** OEE in pieces: how many good pieces the shift is short of target so far. */
+function gapHint(ok: number, plan: number, target: number): string {
+  const gap = target * plan - ok;
+  return gap > 0.5 ? `${pcs(gap)} pcs short of target` : `${pcs(ok)} good pcs, on target`;
 }

@@ -98,7 +98,7 @@ export function InsightCard({ insight, pinned, onCreateAction, actionCreated, cl
             <Check className="h-4 w-4" /> Action created
           </div>
         ) : (
-          <Button variant="action" onClick={() => onCreateAction(insight)}>
+          <Button variant={insight.severity === "high" ? "action" : "default"} onClick={() => onCreateAction(insight)}>
             <Plus className="h-4 w-4" /> Create action
           </Button>
         ))}
