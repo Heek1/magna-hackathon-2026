@@ -1,440 +1,262 @@
-import { useMemo, useState } from "react";
-import type { EChartsCoreOption } from "echarts/core";
-import { Panel } from "@/components/Panel";
-import { EChart } from "@/components/charts/EChart";
-import { useHistory, useHeatmap, useLosses } from "@/api/hooks";
-import { colors } from "@/theme/tokens";
-import { pctUnit } from "@/lib/format";
-import type { HeatmapMetric } from "@/types/api";
+import { useState, useMemo } from "react";
+import { useLosses } from "@/api/hooks";
+import { Card } from "./components/Card";
+import { Chip } from "./components/Chip";
+import { SegmentedControl } from "./components/SegmentedControl";
+import { RankRow } from "./components/RankRow";
+import { ErrorDetail } from "./ErrorDetail";
+import type { LossWithFix } from "./types";
+import { Wrench, CheckCircle2, ChevronRight, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type ErrorCategory = "stops" | "defects" | "speed";
 
 export default function AnalysisPage() {
-  const [from, setFrom] = useState("2026-11-02");
-  const [to, setTo] = useState("2026-11-30");
-  const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetric>("oee");
-  const [paretoKind, setParetoKind] = useState<"downtime" | "nok">("downtime");
+  const [category, setCategory] = useState<ErrorCategory>("stops");
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [assignedCodes, setAssignedCodes] = useState<Set<string>>(new Set());
 
-  const history = useHistory({ from, to });
-  const heatmap = useHeatmap(heatmapMetric);
-  const losses = useLosses({ from, to });
+  // Fetch losses from API / hooks
+  const { data: rawLosses = [], loading } = useLosses({ from: "2026-11-01", to: "2026-11-30" });
+  const losses = rawLosses as LossWithFix[];
 
-  // 1. Daily OEE chart options
-  const oeeChartOption = useMemo<EChartsCoreOption>(() => {
-    const data = history.data ?? [];
-    const dates = data.map((d) => d.date.slice(5)); // MM-DD
-    const oeeValues = data.map((d) => Number((d.oee * 100).toFixed(1)));
+  // Filter losses by category
+  const categorized = useMemo(() => {
+    const stops = losses.filter((l) => l.type === "downtime");
+    const defects = losses.filter((l) => l.type === "nok");
+    const speed = losses.filter((l) => l.type === "microstop" || l.type === "retest" || l.type === "slowdown");
 
+    // Sort by pieces lost descending
+    const sorter = (a: LossWithFix, b: LossWithFix) => b.loss_pcs - a.loss_pcs;
     return {
-      grid: { left: 45, right: 20, top: 25, bottom: 25 },
-      tooltip: {
-        trigger: "axis",
-        axisPointer: { type: "shadow" },
-        formatter: (params: any) => {
-          if (!params || !params[0]) return "";
-          const idx = params[0].dataIndex;
-          const point = data[idx];
-          if (!point) return "";
-          return `
-            <div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;min-width:180px">
-              <div style="font-weight:600;margin-bottom:6px;color:${colors.text}">${point.date}</div>
-              <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:2px">
-                <span style="color:${colors.muted}">OEE</span>
-                <span style="font-family:'IBM Plex Mono',monospace;font-weight:600;color:${point.oee >= 0.85 ? colors.ok : colors.crit}">${pctUnit(point.oee)}</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:2px">
-                <span style="color:${colors.dim}">Availability</span>
-                <span style="font-family:'IBM Plex Mono',monospace">${pctUnit(point.availability)}</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:2px">
-                <span style="color:${colors.dim}">Performance</span>
-                <span style="font-family:'IBM Plex Mono',monospace">${pctUnit(point.performance)}</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:2px">
-                <span style="color:${colors.dim}">Quality</span>
-                <span style="font-family:'IBM Plex Mono',monospace">${pctUnit(point.quality)}</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;gap:12px;margin-top:4px;border-top:1px solid ${colors["border-strong"]};padding-top:4px">
-                <span style="color:${colors.warn}">Downtime</span>
-                <span style="font-family:'IBM Plex Mono',monospace;color:${colors.warn}">${point.downtime_min} min</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;gap:12px">
-                <span style="color:${colors.crit}">Scrap (NOK)</span>
-                <span style="font-family:'IBM Plex Mono',monospace;color:${colors.crit}">${point.nok} pcs</span>
-              </div>
-            </div>
-          `;
-        },
-      },
-      xAxis: {
-        type: "category",
-        data: dates,
-      },
-      yAxis: {
-        type: "value",
-        min: 70,
-        max: 100,
-        axisLabel: { formatter: "{value}%" },
-      },
-      series: [
-        {
-          name: "OEE",
-          type: "bar",
-          barWidth: "55%",
-          data: oeeValues.map((val) => ({
-            value: val,
-            itemStyle: {
-              color: val >= 85 ? colors.ok : colors.crit,
-            },
-          })),
-          markLine: {
-            symbol: ["none", "none"],
-            lineStyle: {
-              type: "dashed",
-              color: colors.muted,
-              width: 1.5,
-            },
-            data: [
-              {
-                yAxis: 85,
-                label: {
-                  formatter: "Target: 85%",
-                  position: "insideEndTop",
-                  color: colors.muted,
-                  fontFamily: "'IBM Plex Mono',monospace",
-                  fontSize: 11,
-                },
-              },
-            ],
-          },
-        },
-      ],
+      stops: [...stops].sort(sorter),
+      defects: [...defects].sort(sorter),
+      speed: [...speed].sort(sorter),
     };
-  }, [history.data]);
+  }, [losses]);
 
-  // 2. Pareto analysis data & chart options
-  const { paretoItems, paretoOption } = useMemo(() => {
-    const raw = losses.data ?? [];
-    const isNok = paretoKind === "nok";
-    const filtered = raw.filter((item) => (isNok ? item.type === "nok" : item.type !== "nok"));
+  const currentList = categorized[category];
+  const firstItem = currentList[0] || null;
+  const restItems = currentList.slice(1);
 
-    // Group by code and sort descending by loss_pcs
-    const map = new Map<string, { code: string; device: string; desc: string; pcs: number; pp: number; count: number }>();
-    filtered.forEach((f) => {
-      const prev = map.get(f.code) ?? { code: f.code, device: f.device ?? "General", desc: f.description, pcs: 0, pp: 0, count: 0 };
-      map.set(f.code, {
-        code: f.code,
-        device: f.device ?? prev.device,
-        desc: f.description || prev.desc,
-        pcs: prev.pcs + f.loss_pcs,
-        pp: prev.pp + f.loss_pp,
-        count: prev.count + f.count,
+  // Category counts
+  const categoryOptions = [
+    { value: "stops" as const, label: "Stops", count: categorized.stops.length },
+    { value: "defects" as const, label: "Defects", count: categorized.defects.length },
+    { value: "speed" as const, label: "Speed", count: categorized.speed.length },
+  ];
+
+  // Assign action handler
+  const handleAssignAction = async (item: LossWithFix, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!item.fix || assignedCodes.has(item.code)) return;
+
+    try {
+      const res = await fetch("/api/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: item.fix.action,
+          owner: item.fix.owner_role,
+          insight_id: item.code,
+        }),
       });
-    });
-
-    const items = Array.from(map.values()).sort((a, b) => b.pcs - a.pcs);
-    const totalPcs = items.reduce((sum, item) => sum + item.pcs, 0) || 1;
-
-    let cum = 0;
-    const withCum = items.map((item) => {
-      cum += item.pcs;
-      return {
-        ...item,
-        cumPct: Math.round((cum / totalPcs) * 100),
-      };
-    });
-
-    const top8 = withCum.slice(0, 8);
-    const codes = top8.map((t) => t.code);
-    const pcsValues = top8.map((t) => t.pcs);
-    const cumValues = top8.map((t) => t.cumPct);
-
-    const option: EChartsCoreOption = {
-      grid: { left: 45, right: 45, top: 25, bottom: 30 },
-      tooltip: {
-        trigger: "axis",
-        axisPointer: { type: "cross" },
-      },
-      xAxis: {
-        type: "category",
-        data: codes,
-      },
-      yAxis: [
-        {
-          type: "value",
-          name: "Pieces",
-          axisLabel: { formatter: "{value}" },
-        },
-        {
-          type: "value",
-          name: "Cum %",
-          min: 0,
-          max: 100,
-          axisLabel: { formatter: "{value}%" },
-          splitLine: { show: false },
-        },
-      ],
-      series: [
-        {
-          name: "Loss (pcs)",
-          type: "bar",
-          barWidth: "40%",
-          itemStyle: { color: colors.crit },
-          data: pcsValues,
-        },
-        {
-          name: "Cumulative %",
-          type: "line",
-          yAxisIndex: 1,
-          symbol: "circle",
-          symbolSize: 6,
-          itemStyle: { color: colors.warn },
-          lineStyle: { color: colors.warn, width: 2 },
-          data: cumValues,
-          markLine: {
-            symbol: ["none", "none"],
-            lineStyle: { type: "dashed", color: colors.muted },
-            data: [{ yAxis: 80, label: { formatter: "80%", position: "end" } }],
-          },
-        },
-      ],
-    };
-
-    return { paretoItems: withCum, paretoOption: option };
-  }, [losses.data, paretoKind]);
-
-  // 3. Heatmap table
-  const heatmapRows = useMemo(() => {
-    const raw = heatmap.data ?? [];
-    if (!raw.length) return [];
-    const dateSet = Array.from(new Set(raw.map((r) => r.date))).sort();
-    return dateSet.map((d) => {
-      const hoursMap: Record<number, number> = {};
-      for (let h = 1; h <= 8; h++) hoursMap[h] = 0;
-      raw.filter((r) => r.date === d).forEach((r) => {
-        hoursMap[r.hour] = r.value;
-      });
-      return { date: d, hours: hoursMap };
-    });
-  }, [heatmap.data]);
-
-  const getHeatmapColor = (val: number) => {
-    if (heatmapMetric === "downtime") {
-      if (val === 0) return "bg-surface text-dim";
-      if (val <= 10) return "bg-warn/20 text-warn border border-warn/30";
-      return "bg-crit/20 text-crit font-bold border border-crit/40";
+      if (res.ok) {
+        setAssignedCodes((prev) => new Set(prev).add(item.code));
+      }
+    } catch (err) {
+      console.error("Failed to assign action:", err);
     }
-    // OEE or Performance
-    if (val >= 0.95) return "bg-ok/20 text-ok font-semibold";
-    if (val >= 0.85) return "bg-ok/10 text-ok/80";
-    if (val >= 0.80) return "bg-warn/20 text-warn";
-    return "bg-crit/20 text-crit font-bold";
   };
 
-  return (
-    <div className="flex flex-col gap-4 p-4 min-h-0 overflow-y-auto">
-      {/* Top Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded border bg-surface p-3">
-        <div className="flex items-center gap-2">
-          <span className="label text-muted">Period:</span>
-          <div className="flex items-center gap-1.5 font-mono text-xs text-text bg-bg border border-border px-2 py-1 rounded">
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="bg-transparent outline-none cursor-pointer"
-            />
-            <span className="text-dim">→</span>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="bg-transparent outline-none cursor-pointer"
-            />
-          </div>
-        </div>
+  const getTone = (cat: ErrorCategory) => {
+    if (cat === "stops") return "stop";
+    if (cat === "defects") return "defect";
+    return "speed";
+  };
 
-        {/* Quick Presets */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => { setFrom("2026-11-02"); setTo("2026-11-30"); }}
-            className="px-2 py-0.5 text-label uppercase rounded border border-border hover:bg-surface-2 text-text transition-colors"
-          >
-            Full Month
-          </button>
-          <button
-            onClick={() => { setFrom("2026-11-02"); setTo("2026-11-06"); }}
-            className="px-2 py-0.5 text-label uppercase rounded border border-border hover:bg-surface-2 text-text transition-colors"
-          >
-            W1
-          </button>
-          <button
-            onClick={() => { setFrom("2026-11-09"); setTo("2026-11-13"); }}
-            className="px-2 py-0.5 text-label uppercase rounded border border-border hover:bg-surface-2 text-text transition-colors"
-          >
-            W2
-          </button>
-          <button
-            onClick={() => { setFrom("2026-11-16"); setTo("2026-11-20"); }}
-            className="px-2 py-0.5 text-label uppercase rounded border border-border hover:bg-surface-2 text-text transition-colors"
-          >
-            W3
-          </button>
-          <button
-            onClick={() => { setFrom("2026-11-23"); setTo("2026-11-27"); }}
-            className="px-2 py-0.5 text-label uppercase rounded border border-border hover:bg-surface-2 text-text transition-colors"
-          >
-            W4
-          </button>
-        </div>
+  // If mobile and error is selected -> show full screen ErrorDetail
+  if (selectedCode) {
+    return (
+      <div className="min-h-screen bg-[#F3F4F7] px-4 py-5 sm:px-6">
+        <ErrorDetail
+          code={selectedCode}
+          onBack={() => setSelectedCode(null)}
+          onActionCreated={() => {
+            setAssignedCodes((prev) => new Set(prev).add(selectedCode));
+          }}
+        />
       </div>
+    );
+  }
 
-      {/* 1. Daily OEE Chart with Target Line */}
-      <Panel
-        title="Daily OEE vs Target (85 %)"
-        meta={`${from} to ${to}`}
-        actions={
-          <div className="flex items-center gap-3 text-label">
-            <span className="flex items-center gap-1.5 text-ok">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-ok" /> ≥85 % On Target
-            </span>
-            <span className="flex items-center gap-1.5 text-crit">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-crit" /> &lt;85 % Below Target
-            </span>
+  return (
+    <div className="min-h-screen bg-[#F3F4F7] px-4 py-5 sm:px-6">
+      <div className="max-w-2xl mx-auto flex flex-col gap-4 pb-20">
+        {/* Header */}
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9AA1AD]">
+            NOVEMBER · BY PIECES LOST
           </div>
-        }
-        className="h-80"
-      >
-        <EChart option={oeeChartOption} />
-      </Panel>
+          <h1 className="text-[28px] font-bold tracking-tight text-[#0B0D12] mt-0.5">Top errors</h1>
+        </div>
 
-      {/* 2-Column Row: Heatmap & Pareto */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Heatmap */}
-        <Panel
-          title="Hour × Day Loss Heatmap"
-          meta={`Metric: ${heatmapMetric.toUpperCase()}`}
-          actions={
-            <div className="flex rounded border border-border bg-bg p-0.5 text-label uppercase">
-              <button
-                onClick={() => setHeatmapMetric("oee")}
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  heatmapMetric === "oee" ? "bg-border-strong text-text font-semibold" : "text-muted hover:text-text"
-                }`}
-              >
-                OEE
-              </button>
-              <button
-                onClick={() => setHeatmapMetric("performance")}
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  heatmapMetric === "performance" ? "bg-border-strong text-text font-semibold" : "text-muted hover:text-text"
-                }`}
-              >
-                Speed
-              </button>
-              <button
-                onClick={() => setHeatmapMetric("downtime")}
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  heatmapMetric === "downtime" ? "bg-border-strong text-text font-semibold" : "text-muted hover:text-text"
-                }`}
-              >
-                Stops
-              </button>
+        {/* Segmented Control */}
+        <SegmentedControl options={categoryOptions} value={category} onChange={setCategory} />
+
+        {loading && (
+          <div className="p-8 text-center text-[#5F6672] text-[14px]">Loading loss data...</div>
+        )}
+
+        {!loading && currentList.length === 0 && (
+          <Card className="p-8 text-center text-[#5F6672]">
+            <p className="text-[14px]">No errors recorded in this category.</p>
+          </Card>
+        )}
+
+        {/* #1 Fix First Hero Card */}
+        {firstItem && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[12px] font-bold uppercase tracking-wider text-[#E5243B] flex items-center gap-1.5">
+                <span className="flex h-2 w-2 rounded-full bg-[#E5243B] animate-pulse" />
+                #1 To Fix First
+              </span>
+              <span className="text-[12px] font-medium text-[#5F6672]">
+                Accounts for {firstItem.loss_pp.toFixed(1)} pp of total losses
+              </span>
             </div>
-          }
-          className="min-h-[380px]"
-        >
-          <div className="overflow-x-auto max-h-[310px]">
-            <table className="w-full text-left border-collapse text-xs font-mono">
-              <thead className="sticky top-0 bg-surface border-b border-border text-muted">
-                <tr>
-                  <th className="py-1.5 px-2 font-normal text-label uppercase">Shift Date</th>
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((h) => (
-                    <th key={h} className="py-1.5 px-1 text-center font-normal text-label">
-                      H{h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {heatmapRows.map((row) => (
-                  <tr key={row.date} className="border-b border-border/50 hover:bg-surface-2/40">
-                    <td className="py-1 px-2 text-muted font-mono text-[11px] whitespace-nowrap">
-                      {row.date}
-                    </td>
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((h) => {
-                      const val = row.hours[h] ?? 0;
-                      return (
-                        <td key={h} className="p-0.5 text-center">
-                          <div className={`py-1 px-0.5 rounded text-[11px] tabular-nums ${getHeatmapColor(val)}`}>
-                            {heatmapMetric === "downtime" ? `${val}m` : `${Math.round(val * 100)}%`}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
 
-        {/* Pareto Chart & Table */}
-        <Panel
-          title="Pareto of Causes (80/20 Rule)"
-          meta={`Filter: ${paretoKind === "downtime" ? "Downtime Stops" : "Scrap (NOK)"}`}
-          actions={
-            <div className="flex rounded border border-border bg-bg p-0.5 text-label uppercase">
-              <button
-                onClick={() => setParetoKind("downtime")}
-                className={`px-2.5 py-0.5 rounded transition-colors ${
-                  paretoKind === "downtime" ? "bg-border-strong text-text font-semibold" : "text-muted hover:text-text"
-                }`}
-              >
-                Downtime
-              </button>
-              <button
-                onClick={() => setParetoKind("nok")}
-                className={`px-2.5 py-0.5 rounded transition-colors ${
-                  paretoKind === "nok" ? "bg-border-strong text-text font-semibold" : "text-muted hover:text-text"
-                }`}
-              >
-                Scrap
-              </button>
-            </div>
-          }
-          className="min-h-[380px]"
-        >
-          <div className="h-44 w-full mb-3">
-            <EChart option={paretoOption} />
-          </div>
-
-          {/* Top Causes List */}
-          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-            {paretoItems.slice(0, 5).map((item, idx) => (
-              <div
-                key={item.code}
-                className="flex items-center justify-between p-2 rounded bg-bg border border-border text-xs font-mono"
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <span className="text-dim text-[11px]">#{idx + 1}</span>
-                  <strong className="text-text">{item.code}</strong>
-                  <span className="text-muted text-[11px]">({item.device})</span>
-                  <span className="text-dim truncate text-[11px] max-w-[180px]">{item.desc}</span>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="font-bold text-crit">-{item.pcs} pcs</span>
-                  <span className="text-dim text-[11px]">({item.pp.toFixed(2)} pp)</span>
-                  <span
-                    className={`text-[10px] px-1 py-0.5 rounded border ${
-                      item.cumPct <= 80 ? "border-warn/40 text-warn bg-warn/10" : "border-border text-muted"
-                    }`}
-                  >
-                    {item.cumPct}%
+            <Card
+              onClick={() => setSelectedCode(firstItem.code)}
+              className="border-[#E5243B]/20 shadow-[0_4px_16px_rgba(229,36,59,0.06)] hover:border-[#E5243B]/40 transition-all p-4 sm:p-5"
+            >
+              {/* Pattern Chip & Meta */}
+              <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                <Chip tone="stop" className="font-semibold">
+                  {firstItem.code === "ST-038"
+                    ? "Pattern: Every Wed 09:08"
+                    : firstItem.code === "ST-047"
+                      ? "Pattern: Every Thu 08:08"
+                      : "Priority #1 Impact"}
+                </Chip>
+                {firstItem.device && (
+                  <span className="text-[12px] font-medium text-[#5F6672] bg-[#F6F7F9] px-2.5 py-0.5 rounded-full">
+                    Station: {firstItem.device}
                   </span>
+                )}
+              </div>
+
+              {/* Title & Loss */}
+              <div className="flex items-start justify-between gap-3 my-2">
+                <div>
+                  <h3 className="font-mono text-[18px] font-bold text-[#0B0D12]">{firstItem.code}</h3>
+                  <p className="text-[14px] text-[#5F6672] leading-snug mt-0.5">{firstItem.description}</p>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <div className="font-mono text-[26px] font-bold text-[#E5243B] leading-none">
+                    {firstItem.loss_pcs.toFixed(0)}{" "}
+                    <span className="text-[13px] font-normal text-[#5F6672]">pcs</span>
+                  </div>
+                  <div className="text-[11px] font-mono text-[#9AA1AD] mt-1">
+                    -{firstItem.loss_pp.toFixed(1)} pp OEE
+                  </div>
                 </div>
               </div>
-            ))}
+
+              {/* Green Solution Block */}
+              {firstItem.fix ? (
+                <div className="mt-4 rounded-[16px] bg-[#E7F6EF] p-3.5 border border-[#0E9F6E]/20">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="text-[12px] font-semibold text-[#0E9F6E] flex items-center gap-1.5">
+                      <Wrench className="h-3.5 w-3.5" />
+                      Recommended Fix
+                    </span>
+                    <Chip tone="fix" dot={false} className="py-0.5 px-2 text-[11px] bg-white font-semibold">
+                      +{firstItem.loss_pcs.toFixed(0)} pcs gain
+                    </Chip>
+                  </div>
+
+                  <p className="text-[13px] text-[#0B0D12] leading-snug">{firstItem.fix.action}</p>
+
+                  <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-[#0E9F6E]/20">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-medium text-[#0E9F6E] bg-white/80 px-2 py-0.5 rounded-md">
+                        {firstItem.fix.method}
+                      </span>
+                      <span className="text-[11px] font-medium text-[#5F6672] bg-white/80 px-2 py-0.5 rounded-md">
+                        Owner: {firstItem.fix.owner_role}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => handleAssignAction(firstItem, e)}
+                      className={cn(
+                        "h-8 px-3.5 rounded-[12px] text-[12px] font-semibold flex items-center gap-1.5 transition-all shadow-xs shrink-0",
+                        assignedCodes.has(firstItem.code)
+                          ? "bg-white text-[#0E9F6E] border border-[#0E9F6E]/40"
+                          : "bg-[#0E1116] text-white hover:bg-[#1E232D] active:scale-95",
+                      )}
+                    >
+                      {assignedCodes.has(firstItem.code) ? (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Assigned
+                        </>
+                      ) : (
+                        "Assign"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCode(firstItem.code)}
+                    className="text-[13px] font-medium text-[#2F6BFF] flex items-center gap-1"
+                  >
+                    View details <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </Card>
           </div>
-        </Panel>
+        )}
+
+        {/* Next to Fix List */}
+        {restItems.length > 0 && (
+          <div className="flex flex-col gap-2.5 mt-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[13px] font-semibold text-[#0B0D12] flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-[#5F6672]" />
+                Next to fix ({restItems.length})
+              </span>
+              <span className="text-[11px] text-[#9AA1AD]">Tap for root cause & fix</span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {restItems.map((item, index) => (
+                <RankRow
+                  key={item.code}
+                  rank={index + 2}
+                  code={item.code}
+                  description={item.description}
+                  device={item.device}
+                  count={item.count}
+                  lossPcs={item.loss_pcs}
+                  lossPp={item.loss_pp}
+                  maxLossPcs={firstItem?.loss_pcs || 100}
+                  tone={getTone(category)}
+                  fixMethod={item.fix?.method}
+                  fixOwner={item.fix?.owner_role}
+                  onClick={() => setSelectedCode(item.code)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
