@@ -321,3 +321,151 @@ def test_chat_answers_in_words_when_the_llm_fails(ds, monkeypatch):
     assert "HTTP 429" in chat("Why?", whole(ds))
     monkeypatch.setattr("urllib.request.urlopen", lambda request, timeout: (_ for _ in ()).throw(TimeoutError()))
     assert "did not respond" in chat("Why?", whole(ds))
+
+
+# ---------- mobile app, stage 1: upcoming ----------
+
+from .upcoming import upcoming  # noqa: E402
+
+UPCOMING_FIELDS = {"code", "kind", "title", "expected_at", "confidence", "risk_pcs", "evidence",
+                   "insight_id"}
+
+
+def test_upcoming_during_the_camera_stop(ds):
+    frames = at(ds, "2026-11-25 09:20")
+    items = upcoming(frames)
+    assert items[0] == {
+        "code": "ST-047", "kind": "stop", "title": "Test nest allows air leakage",
+        "expected_at": "2026-11-26T08:08:00", "confidence": "high", "risk_pcs": 15.0,
+        "evidence": "3 of 3 Thursdays at 08:08", "insight_id": "recurring_stop:ST-047:thu:3"}
+    for item in items:
+        assert set(item) == UPCOMING_FIELDS and item["kind"] == "stop"
+        assert item["confidence"] in {"high", "medium", "low"}
+        assert item["expected_at"] > "2026-11-25T09:20:00"
+    assert [i["expected_at"] for i in items] == sorted(i["expected_at"] for i in items)
+    # ST-038 is running now: not expected again today, but next Wednesday, at its full 25 min
+    camera = [i for i in items if i["code"] == "ST-038"]
+    assert [(i["expected_at"], i["risk_pcs"], i["confidence"]) for i in camera] == [
+        ("2026-12-02T09:08:00", 25.0, "high")]
+    insight_ids = {i["id"] for i in get_insights(frames)}
+    for item in items:
+        assert (item["insight_id"] in insight_ids) if item["confidence"] != "low" else item["insight_id"] is None
+    json.dumps(items)
+
+
+def test_upcoming_horizon_counts_shift_time_only(ds):
+    frames = at(ds, "2026-11-25 09:20")
+    # 4 h 40 min of today's shift remain, so Thursday 08:08 is 6.8 shift hours away
+    assert upcoming(frames, 6) == []
+    assert [i["code"] for i in upcoming(frames, 8)] == ["ST-047"]
+    # Friday 13:00 -> Monday is one shift hour plus the weekend, which does not count
+    friday = upcoming(at(ds, "2026-11-20 13:00"), 8)
+    assert all(i["expected_at"].startswith("2026-11-23") for i in friday)
+
+
+def test_upcoming_before_the_stop_and_on_the_whole_dataset(ds):
+    before = upcoming(at(ds, "2026-11-25 08:30"))
+    assert (before[0]["code"], before[0]["expected_at"]) == ("ST-038", "2026-11-25T09:08:00")
+    after_data = upcoming(whole(ds))  # no sim_time: "now" is the end of Nov 30
+    assert [(i["code"], i["expected_at"]) for i in after_data if i["confidence"] == "high"] == [
+        ("ST-038", "2026-12-02T09:08:00"), ("ST-047", "2026-12-03T08:08:00")]
+    assert upcoming(at(ds, "2026-11-02 06:00")) == []
+    assert upcoming(at(ds, "2026-11-04 12:00")) == []  # one occurrence is not a pattern
+
+
+def test_upcoming_is_fast(ds):
+    import time
+    frames = at(ds, "2026-11-30 14:00")
+    start = time.perf_counter()
+    upcoming(frames)
+    assert time.perf_counter() - start < 0.2
+
+
+# ---------- mobile app, stage 2: explain ----------
+
+from .explain import explain  # noqa: E402
+
+ALL_CODES = ["ST-001", "ST-016", "ST-017", "ST-038", "ST-046", "ST-047", "Q-020", "Q-026", "Q-030",
+             "Q-031", "microstop", "retest", "slowdown"]
+
+
+def test_explain_recurring_stops(ds):
+    frames = at(ds, "2026-11-25 09:20")
+    assert explain(frames, "ST-038") == (
+        "Stops every Wednesday at 09:08 (4 of 4 weeks), about 25 min each, at the camera station "
+        "— a scheduled pattern, not random wear.")  # the running stop does not distort "25 min"
+    assert explain(frames, "ST-047") == (
+        "Stops every Thursday at 08:08 (3 of 3 weeks), about 15 min each, at the leak test station "
+        "— a scheduled pattern, not random wear.")
+
+
+def test_explain_other_stops_defects_and_speed(ds):
+    frames = at(ds, "2026-11-25 09:20")
+    assert explain(frames, "ST-046") == (
+        "5 stops on 5 days, about 11 min each, at the leak test station. "
+        "No fixed schedule; most often in shift hour 3 (2 of 5).")
+    assert explain(frames, "Q-031") == (
+        "32 NOK pcs, 33% of all scrap, on 15 of 18 days — a steady defect, not a one-off. "
+        "Most in shift hour 5 (8 of 32 pcs), a consistently slow hour.")
+    assert explain(frames, "microstop") == (
+        "Microstops cost 162.5 pcs, 1.3 s per run minute. "
+        "Worst in the slow shift hours 1 and 5: 2.1 and 2.8 s/min vs 1.1 elsewhere.")
+    assert explain(frames, "slowdown").startswith("Slowdown costs 272.1 pcs")
+    assert explain(frames, "retest").startswith("Retests cost 45.3 pcs")
+
+
+def test_explain_links_to_today(ds):
+    # 13 min of ST-046 made hour 2 of Nov 25 an OEE anomaly
+    assert explain(at(ds, "2026-11-25 08:00"), "ST-046").endswith(
+        "No fixed schedule; it is behind the abnormally low OEE of the current hour (2).")
+    assert explain(at(ds, "2026-11-12 14:00"), "Q-030").endswith(
+        "Today it spiked: 3 pcs, 2.2 above a normal shift.")
+
+
+def test_explain_nothing_to_say(ds):
+    frames = at(ds, "2026-11-25 09:20")
+    assert explain(frames, "ST-002") is None       # in the code list, never happened
+    assert explain(frames, "NOPE") is None
+    assert explain(at(ds, "2026-11-04 12:00"), "ST-038") is None   # one occurrence so far
+    assert explain(at(ds, "2026-11-02 06:00"), "ST-038") is None   # no data yet
+    assert explain(at(ds, "2026-11-02 06:20"), "microstop") is None
+
+
+def test_explain_is_short_and_fast_at_any_moment(ds):
+    import time
+    for date in sorted(set(ds.hours["Datum"])):
+        for minutes in (125, 200, 480):
+            frames = at(ds, date + pd.Timedelta(hours=6, minutes=minutes))
+            for code in ALL_CODES:
+                text = explain(frames, code)
+                if text is not None:
+                    assert len(text) <= 220, text
+                    assert text.endswith(".") and text.count(". ") <= 1, text
+    frames = at(ds, "2026-11-30 14:00")
+    start = time.perf_counter()
+    explain(frames, "ST-038")
+    assert time.perf_counter() - start < 0.2
+
+
+# ---------- mobile app, stage 3: the pitch numbers on the full month ----------
+
+def test_pitch_numbers(ds):
+    frames = at(ds, "2026-11-30 14:00")
+    hours = frames["hours"]
+    plan, run = hours["Plan_min"].sum(), hours["Chod_min"].sum()
+    produced, ok = hours["Vyrobene_ks"].sum(), hours["OK_ks"].sum()
+
+    # the pitch says ~ +1.7 pp: that is 160 lost minutes / 9240; in good pieces it is +1.59 pp
+    stops = what_if(frames, ["ST-038", "ST-047"])
+    assert stops == {"oee_before": 0.8801, "oee_after": 0.896, "gain_pcs": 147.4, "gain_pp": 1.59}
+    assert 160 / plan * 100 == pytest.approx(1.73, abs=0.005)
+
+    # the pitch says ~ +1.1 pp
+    slow = what_if(frames, ["slow_hour_1", "slow_hour_5"])
+    assert slow == {"oee_before": 0.8801, "oee_after": 0.8915, "gain_pcs": 105.5, "gain_pp": 1.14}
+
+    # the pitch says 1108 pcs lost: 52 % speed, 37 % downtime, 11 % scrap
+    lost = plan - ok
+    speed, downtime, scrap = run - produced, hours["Prestoj_min"].sum(), hours["NOK_ks"].sum()
+    assert (lost, speed, downtime, scrap) == (1108, 579, 410, 119)
+    assert [round(100 * part / lost, 1) for part in (speed, downtime, scrap)] == [52.3, 37.0, 10.7]
