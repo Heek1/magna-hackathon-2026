@@ -35,15 +35,15 @@ export function Panel({
   children,
 }: PanelProps) {
   return (
-    <section className={cn("flex min-h-0 flex-col rounded border bg-surface", className)}>
+    <section className={cn("flex min-h-0 flex-col rounded-card bg-bg-card shadow-card", className)}>
       {(title || actions) && (
-        <header className="flex h-11 shrink-0 items-center gap-3 border-b px-4">
-          {title && <h2 className="label text-text/80">{title}</h2>}
-          {meta && <span className="label text-dim">{meta}</span>}
+        <header className="flex h-12 shrink-0 items-center gap-3 border-b px-card-pad">
+          {title && <h2 className="text-title-m text-text-primary">{title}</h2>}
+          {meta && <span className="text-caption text-text-tertiary">{meta}</span>}
           {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
         </header>
       )}
-      <div className={cn("relative min-h-0 flex-1 p-4", bodyClassName)}>
+      <div className={cn("relative min-h-0 flex-1 p-card-pad", bodyClassName)}>
         <StateView state={state} emptyText={emptyText} errorText={errorText} onRetry={onRetry}>
           {children}
         </StateView>

@@ -1,11 +1,18 @@
 import { clsx, type ClassValue } from "clsx";
 import { extendTailwindMerge } from "tailwind-merge";
-import { fontSize } from "@/theme/tokens";
+import { fontSize, radius, shadow, spacing } from "@/theme/tokens";
 
-// Teach tailwind-merge our custom font sizes (text-kpi, text-num-lg, …); otherwise it treats them
-// as text colors and drops them when a color class like text-text comes later.
+// Teach tailwind-merge our token names (text-num-l, rounded-card, shadow-card, p-card-pad, …);
+// otherwise it misreads them (a font size as a text color) and drops or keeps the wrong class.
 const twMerge = extendTailwindMerge({
-  extend: { classGroups: { "font-size": [{ text: Object.keys(fontSize) }] } },
+  extend: {
+    theme: { spacing: Object.keys(spacing) },
+    classGroups: {
+      "font-size": [{ text: Object.keys(fontSize) }],
+      rounded: [{ rounded: Object.keys(radius) }],
+      shadow: [{ shadow: Object.keys(shadow) }],
+    },
+  },
 });
 
 export function cn(...inputs: ClassValue[]) {

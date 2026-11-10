@@ -80,3 +80,9 @@ export function toIso(d: Date): string {
 export function hourLabel(hour: number): string {
   return `${pad(5 + hour)}:00`;
 }
+
+/** Value with its unit, singular for one piece: (1, "pcs") → "1 pc", (12, "min") → "12 min". */
+export function withUnit(value: number, unit: string): string {
+  const v = pcs(value);
+  return `${v} ${unit === "pcs" && v === "1" ? "pc" : unit}`;
+}

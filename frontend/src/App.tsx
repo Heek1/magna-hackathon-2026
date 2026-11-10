@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { SimProvider } from "@/api/hooks";
 import { AppShell } from "@/components/layout/AppShell";
@@ -6,6 +6,9 @@ import { navIcons, type NavItem } from "@/components/layout/SideNav";
 import { Panel } from "@/components/Panel";
 import LivePage from "@/pages/live/LivePage";
 import { externalPage } from "@/pages/registry";
+
+// Dev-only board of the shared components (not in the production build).
+const ComponentsBoard = import.meta.env.DEV ? lazy(() => import("@/pages/dev/ComponentsBoard")) : null;
 
 const AnalysisPage = externalPage("analysis");
 const ActionsPage = externalPage("actions");
@@ -37,7 +40,19 @@ export default function App() {
   return (
     <SimProvider>
       <BrowserRouter>
-        <Shell />
+        <Routes>
+          {ComponentsBoard && (
+            <Route
+              path="/components"
+              element={
+                <Suspense fallback={null}>
+                  <ComponentsBoard />
+                </Suspense>
+              }
+            />
+          )}
+          <Route path="*" element={<Shell />} />
+        </Routes>
       </BrowserRouter>
     </SimProvider>
   );

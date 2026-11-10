@@ -126,6 +126,8 @@ export const radius = {
 /** Figma effect style Elevation/Card. */
 export const shadow = {
   card: "0 1px 2px rgba(16,24,40,.04), 0 8px 24px -4px rgba(16,24,40,.06)",
+  /** Hero card while the line is stopped: soft red glow (Figma 01 Now). */
+  "hero-stop": "0 12px 32px -8px rgba(229,36,59,.35)",
 };
 
 /** Spacing: 16 page gutter, 12–14 between cards, 16–18 card padding. */
