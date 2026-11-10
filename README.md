@@ -44,5 +44,7 @@ docker build -t oee-engine .
 docker run -p 8000:8000 oee-engine      # http://localhost:8000
 ```
 
-Hosting platforms set `PORT`; the container listens on it. Actions are kept in `/app/state/actions.db`
+Hosting platforms set `PORT`; the container listens on it. Set `ACCESS_KEY` to keep the demo private:
+without it in the link (`/?key=…`, e.g. from the QR code) the server shows only an "Access required"
+page and the API answers 401. Opening the link once stores a cookie on that phone for 60 days. Actions are kept in `/app/state/actions.db`
 inside the container (reset on redeploy).
