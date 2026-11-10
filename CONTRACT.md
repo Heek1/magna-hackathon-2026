@@ -51,7 +51,12 @@ GET  /api/insights   → [{id, kind: recurring_stop|prediction|slow_hour|quality
                          recommendation: {action, method, owner_role, expected_gain_pcs}}]
 POST /api/whatif     ← {remove: [code or key], from, to}
                      → {oee_before, oee_after, gain_pcs, gain_pp}
-POST /api/chat       ← {question} → {answer}; returns 503 without an LLM key
+POST /api/chat       ← {question, history?: [{role: user|assistant, text}], code?, role?}
+                     → {answer, sources: [str], followups: [str]}  code = the error on screen,
+                         role = the user's role; last 6 history turns are used; 503 without an
+                         LLM key or when the LLM fails or times out (> 10 s), never 500
+GET  /api/chat/suggestions?code&role → [str]  3-4 starter questions; 503 without an LLM key
+                         (the app then hides "Ask AI")
 GET  /api/report?date → {date, kpis, top_losses, insights, actions, summary}
 GET/POST /api/actions, PATCH /api/actions/{id}
                      → {id, insight_id, title, owner, status: open|in_progress|done, created_at}
