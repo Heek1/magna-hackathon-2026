@@ -185,3 +185,87 @@ def test_api_serves_the_real_insights():
     assert [(i["code"], i["expected_at"]) for i in insights if i["kind"] == "prediction"] == [
         ("ST-038", "2026-11-25T09:08:00")]
     assert {i["code"] for i in insights if i["kind"] == "recurring_stop"} == {"ST-038", "ST-047"}
+
+
+# ---------- stage 2: what_if ----------
+
+from .whatif import what_if  # noqa: E402
+
+
+def test_what_if_without_the_recurring_stops(ds):
+    result = what_if(whole(ds), ["ST-038", "ST-047"])
+    assert result["oee_before"] == 0.8801  # monthly control number
+    # 160 min become run time at the month's Performance and Quality
+    gain = 160 * (8251 / 8830) * (8132 / 8251)
+    assert result["gain_pcs"] == round(gain, 1)
+    assert result["gain_pp"] == pytest.approx(gain / 9240 * 100, abs=0.01)
+    assert result["oee_after"] == pytest.approx(0.8801 + gain / 9240, abs=0.0002)
+
+
+def test_what_if_slow_hours_and_other_keys(ds):
+    frames = whole(ds)
+    slow = what_if(frames, ["slow_hour_1", "slow_hour_5"])
+    assert slow["gain_pp"] == pytest.approx(1.14, abs=0.03)
+    assert what_if(frames, ["slow_hour_3"])["gain_pcs"] == 0  # not below the others
+    assert what_if(frames, ["Q-031"])["gain_pcs"] == 38
+    assert what_if(frames, ["microstop"])["gain_pcs"] == pytest.approx(11999 / 60 * 8132 / 8251, abs=0.1)
+    assert what_if(frames, ["NOPE"]) == {"oee_before": 0.8801, "oee_after": 0.8801,
+                                         "gain_pcs": 0.0, "gain_pp": 0.0}
+    both = what_if(frames, ["ST-038", "ST-038", "slow_hour_1"])  # duplicates count once
+    assert both["gain_pcs"] == pytest.approx(
+        what_if(frames, ["ST-038"])["gain_pcs"] + what_if(frames, ["slow_hour_1"])["gain_pcs"], abs=0.1)
+
+
+def test_what_if_period(ds):
+    from datetime import date
+    day = what_if(whole(ds), ["ST-038"], date(2026, 11, 4), date(2026, 11, 4))
+    assert day["oee_before"] == 0.8159  # Kontrola_zmien 2026-11-04
+    assert day["gain_pcs"] == pytest.approx(25 * (366 / 405) * (359 / 366), abs=0.1)
+    assert what_if(whole(ds), ["ST-038"], date(2026, 11, 5), date(2026, 11, 6))["gain_pcs"] == 0
+    assert what_if(whole(ds), ["ST-038"], date(2027, 1, 1), None)["oee_after"] == 0
+
+
+# ---------- stage 2: chat ----------
+
+from .chat import ChatUnavailable, chat  # noqa: E402
+
+
+def test_chat_without_key_is_unavailable(ds, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(ChatUnavailable):
+        chat("Why?", whole(ds))
+
+
+def test_chat_sends_the_snapshot_and_returns_the_answer(ds, monkeypatch):
+    import io
+    sent = {}
+
+    def fake_urlopen(request, timeout):
+        sent["url"], sent["headers"] = request.full_url, dict(request.header_items())
+        sent["body"] = json.loads(request.data)
+        return io.BytesIO(json.dumps(
+            {"candidates": [{"content": {"parts": [{"text": " Camera, ST-038. "}]}}]}).encode())
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    answer = chat("Why are Wednesdays below target?", at(ds, "2026-11-25 08:30"))
+
+    assert answer == "Camera, ST-038."
+    assert "test-key" not in sent["url"] and sent["headers"]["X-goog-api-key"] == "test-key"
+    text = sent["body"]["contents"][0]["parts"][0]["text"]
+    assert "Why are Wednesdays below target?" in text
+    assert "ST-038" in text and "2026-11-25T09:08:00" in text  # the prediction is in the snapshot
+    assert "only from the JSON snapshot" in sent["body"]["system_instruction"]["parts"][0]["text"]
+
+
+def test_api_serves_what_if_and_chat_503(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    client = TestClient(app)
+    client.post("/api/sim/control", json={"paused": True, "jump_to": "2026-11-30T14:00:00"})
+    result = client.post("/api/whatif", json={"remove": ["ST-038", "ST-047"]}).json()
+    assert result["oee_before"] == 0.8801 and result["gain_pp"] == pytest.approx(1.59, abs=0.01)
+    assert client.post("/api/chat", json={"question": "Why?"}).status_code == 503
