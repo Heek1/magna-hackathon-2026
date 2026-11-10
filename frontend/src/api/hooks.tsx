@@ -18,9 +18,6 @@ import type {
   Action,
   ActionCreate,
   ActionStatus,
-  HeatmapCell,
-  HeatmapMetric,
-  HistoryPoint,
   ErrorDetail,
   Insight,
   LineEvent,
@@ -28,10 +25,8 @@ import type {
   SimControl,
   SimControlState,
   SimState,
-  WhatIfRequest,
-  WhatIfResponse,
 } from "@/types/api";
-import { API_BASE, ApiError, api, errorText, qs } from "@/api/client";
+import { API_BASE, api, errorText, qs } from "@/api/client";
 import { parseTime, toIso } from "@/lib/format";
 import type { PanelState } from "@/components/Panel";
 
@@ -384,91 +379,4 @@ type Period = { from?: string; to?: string };
 /** GET /api/losses?from&to (dates optional — omitted = everything up to sim_time). `null` skips. */
 export function useLosses(params: Period | null): Resource<Loss[]> {
   return useApi<Loss[]>(params ? `/losses${qs(params)}` : null);
-}
-
-/** GET /api/history?from&to */
-export function useHistory(params: Period | null): Resource<HistoryPoint[]> {
-  return useApi<HistoryPoint[]>(params ? `/history${qs(params)}` : null);
-}
-
-/** GET /api/heatmap?metric */
-export function useHeatmap(metric: HeatmapMetric): Resource<HeatmapCell[]> {
-  return useApi<HeatmapCell[]>(`/heatmap${qs({ metric })}`);
-}
-
-/** POST /api/whatif, re-run (debounced) whenever the request changes. `null` = nothing selected. */
-export function useWhatIf(req: WhatIfRequest | null): Resource<WhatIfResponse> & { pending: boolean } {
-  const [data, setData] = useState<WhatIfResponse>();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  const key = req ? JSON.stringify(req) : null;
-
-  useEffect(() => {
-    if (!key) {
-      setData(undefined);
-      setError(null);
-      setPending(false);
-      return;
-    }
-    const ctrl = new AbortController();
-    setPending(true);
-    const t = window.setTimeout(() => {
-      api<WhatIfResponse>("/whatif", { method: "POST", json: JSON.parse(key), signal: ctrl.signal })
-        .then((d) => {
-          setData(d);
-          setError(null);
-          setPending(false);
-        })
-        .catch((e) => {
-          if (e.name === "AbortError") return;
-          setError(errorText(e));
-          setPending(false);
-        });
-    }, 250);
-    return () => {
-      window.clearTimeout(t);
-      ctrl.abort();
-    };
-  }, [key]);
-
-  return { data, loading: pending && data === undefined, error, pending };
-}
-
-/**
- * Chat. `available`: null while probing, false when /api/chat answers 503 (no LLM key) —
- * the chat panel is then hidden. Without a key the backend answers 503 before calling the LLM.
- */
-let chatProbe: Promise<boolean> | null = null;
-function probeChat(): Promise<boolean> {
-  chatProbe ??= api<{ answer: string }>("/chat", { method: "POST", json: { question: "" } })
-    .then(() => true)
-    .catch((e) => {
-      // 503 = no LLM key: stays hidden. Anything else (backend down…): hidden now, probe again later.
-      if (!(e instanceof ApiError && e.status === 503 && !e.message.startsWith("Server error"))) chatProbe = null;
-      return false;
-    });
-  return chatProbe;
-}
-
-export function useChat() {
-  const [available, setAvailable] = useState<boolean | null>(null);
-  const connection = useConnection();
-  useEffect(() => {
-    let alive = true;
-    probeChat().then((ok) => alive && setAvailable(ok)); // re-probed when the backend comes back
-    return () => {
-      alive = false;
-    };
-  }, [connection]);
-
-  const ask = useCallback(async (question: string) => {
-    try {
-      return (await api<{ answer: string }>("/chat", { method: "POST", json: { question } })).answer;
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 503) setAvailable(false);
-      throw e;
-    }
-  }, []);
-
-  return { available, ask };
 }
