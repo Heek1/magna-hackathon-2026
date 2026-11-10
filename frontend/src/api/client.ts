@@ -34,6 +34,7 @@ export async function api<T>(path: string, init?: RequestInit & { json?: unknown
     } catch {
       /* not JSON */
     }
+    if (res.status === 401) toAccessPage();
     throw new ApiError(res.status, detail);
   }
   return res.json() as Promise<T>;
@@ -49,4 +50,13 @@ export function qs(params: Record<string, string | number | null | undefined>): 
 
 export function errorText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
+}
+
+/**
+ * The demo is behind an access key (server cookie). If the cookie is missing, e.g. the app was opened
+ * from the phone's cache, go to the server's "Access required" page instead of showing empty screens.
+ */
+function toAccessPage() {
+  if (typeof window === "undefined" || window.location.search.includes("locked=1")) return;
+  window.location.replace("/?locked=1");
 }
