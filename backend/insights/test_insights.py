@@ -269,3 +269,16 @@ def test_api_serves_what_if_and_chat_503(monkeypatch):
     result = client.post("/api/whatif", json={"remove": ["ST-038", "ST-047"]}).json()
     assert result["oee_before"] == 0.8801 and result["gain_pp"] == pytest.approx(1.59, abs=0.01)
     assert client.post("/api/chat", json={"question": "Why?"}).status_code == 503
+
+
+# ---------- the real countermeasures.json ----------
+
+def test_real_countermeasures_cover_the_insights(ds, monkeypatch):
+    monkeypatch.setattr(engine, "COUNTERMEASURES_PATH", Path(engine.__file__).with_name("countermeasures.json"))
+    for frames in (whole(ds), at(ds, "2026-11-25 08:30"), at(ds, "2026-11-25 08:00")):
+        for item in get_insights(frames):
+            if item["id"].startswith("anomaly:oee"):  # no single cause, so no key
+                continue
+            rec = item["recommendation"]
+            assert rec and rec["action"] and rec["method"] and rec["owner_role"], item["id"]
+            assert rec["expected_gain_pcs"] == item["loss_pcs"]
