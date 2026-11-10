@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+  body {
+    @apply bg-bg font-sans text-sm text-text antialiased;
+  }
+  * {
+    @apply border-border;
+  }
+  :focus-visible {
+    @apply outline outline-1 outline-offset-2 outline-data;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded bg-border-strong;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  /* Every number: monospace with tabular figures. */
+  .num {
+    @apply font-mono tabular-nums;
+  }
+  /* Every label: small, muted, uppercase. */
+  .label {
+    @apply font-sans text-label font-medium uppercase text-muted;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-stop-pulse {
+    animation: none;
+  }
+}
