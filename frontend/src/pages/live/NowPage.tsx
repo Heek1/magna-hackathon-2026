@@ -1,19 +1,22 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { LineEvent, Loss, SimState } from "@/types/api";
-import { useConnection, useEvents, useLosses, useSimClock, useSimState } from "@/api/hooks";
+import { resourceState, useConnection, useEvents, useLosses, useSimClock, useSimState, type Resource } from "@/api/hooks";
 import { Card, CardHeader } from "@/components/Card";
 import { Chip } from "@/components/Chip";
 import { EventRow } from "@/components/EventRow";
 import { OeeRing } from "@/components/OeeRing";
+import { StateView } from "@/components/Panel";
+import { SimSettings } from "@/components/SimSettings";
 import { StatusHero } from "@/components/StatusHero";
 import { dayLabel, greeting, hhmm, parseTime, pcs } from "@/lib/format";
 
 /** 01 Now — what is happening on the line and when. */
 export default function NowPage() {
-  const { data: state } = useSimState();
+  const live = useSimState();
+  const state = live.data;
   const { now } = useSimClock();
-  const events = useEvents(state?.shift.date);
+  const events = useEvents(state?.shift.date ?? null);
   // Month to date: the countermeasure for whatever is stopped now.
   const losses = useLosses(state ? { to: state.shift.date } : null);
   const navigate = useNavigate();
@@ -22,9 +25,25 @@ export default function NowPage() {
   return (
     <div className="flex flex-col gap-card-gap pb-4">
       <Header date={state ? now : null} />
-      {state && <Hero state={state} events={events.data ?? []} losses={losses.data ?? []} onOpen={open} />}
-      {state && <Kpis state={state} />}
-      <ErrorsToday events={events.data ?? []} onOpen={open} />
+      {state ? (
+        <Hero state={state} events={events.data ?? []} losses={losses.data ?? []} onOpen={open} />
+      ) : (
+        <Card className="min-h-[188px] rounded-hero">
+          <StateView state={resourceState(live)} errorText={live.error} />
+        </Card>
+      )}
+      {state ? (
+        <Kpis state={state} />
+      ) : (
+        <div className="grid grid-cols-2 gap-card-gap">
+          {[0, 1].map((i) => (
+            <Card key={i} className="min-h-[96px]">
+              <StateView state={live.error ? "error" : "loading"} errorText={live.error ? "No data" : null} />
+            </Card>
+          ))}
+        </div>
+      )}
+      <ErrorsToday events={events} waiting={!state} onOpen={open} />
     </div>
   );
 }
@@ -45,7 +64,10 @@ function Header({ date }: { date: Date | null }) {
         <p className="overline-label">Line L01{date && ` · ${dayLabel(date)}`}</p>
         <h1 className="mt-1 text-display text-text-primary">{date ? greeting(date) : "Hello"}</h1>
       </div>
-      <div className="pb-1.5">{chip}</div>
+      <div className="flex items-center gap-2 pb-1">
+        {chip}
+        <SimSettings className="lg:hidden" />
+      </div>
     </header>
   );
 }
@@ -107,15 +129,29 @@ function Kpis({ state }: { state: SimState }) {
 
 const kindLabel = { stop: "Stop", defect: "Defect", speed: "Speed loss" } as const;
 
-function ErrorsToday({ events, onOpen }: { events: LineEvent[]; onOpen: (code: string) => void }) {
-  const sorted = useMemo(() => [...events].sort((a, b) => b.time.localeCompare(a.time)), [events]);
+function ErrorsToday({
+  events,
+  waiting,
+  onOpen,
+}: {
+  events: Resource<LineEvent[]>;
+  /** No line state yet, so the day is not known. */
+  waiting: boolean;
+  onOpen: (code: string) => void;
+}) {
+  const sorted = useMemo(() => [...(events.data ?? [])].sort((a, b) => b.time.localeCompare(a.time)), [events.data]);
   return (
     <Card>
-      <CardHeader title="Errors today" meta={`${sorted.length} ${sorted.length === 1 ? "event" : "events"}`} />
-      {sorted.length === 0 ? (
-        <p className="py-6 text-center text-body text-text-secondary">No errors so far today.</p>
-      ) : (
-        <div className="mt-1">
+      <CardHeader
+        title="Errors today"
+        meta={events.data ? `${sorted.length} ${sorted.length === 1 ? "event" : "events"}` : undefined}
+      />
+      <div className="mt-1">
+        <StateView
+          state={waiting ? "loading" : resourceState(events)}
+          emptyText="No errors so far today — the line runs clean."
+          errorText={events.error}
+        >
           {sorted.map((e) => (
             <EventRow
               key={`${e.time}-${e.code}`}
@@ -128,8 +164,8 @@ function ErrorsToday({ events, onOpen }: { events: LineEvent[]; onOpen: (code: s
               onClick={() => onOpen(e.code)}
             />
           ))}
-        </div>
-      )}
+        </StateView>
+      </div>
     </Card>
   );
 }

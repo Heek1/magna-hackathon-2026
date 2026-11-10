@@ -4,13 +4,16 @@
  *   Top errors    → src/pages/analysis/index.tsx                 (route /errors)
  *   Error detail  → src/pages/analysis/ErrorDetail.tsx  or  ErrorDetail/index.tsx  (/errors/:code)
  *   Fixes         → src/pages/actions/index.tsx                  (route /fixes)
- * Each file default-exports a component. Error detail reads the code with useParams().
+ * A page default-exports a component. Error detail may instead export
+ * `ErrorDetail({ code, onBack })`; the adapter below feeds it the :code route param.
  */
-import { lazy, type ComponentType, type LazyExoticComponent } from "react";
+import { createElement, lazy, type ComponentType, type LazyExoticComponent } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 type Page = LazyExoticComponent<ComponentType>;
+type Module = { default?: ComponentType; ErrorDetail?: ComponentType<{ code: string; onBack: () => void }> };
 
-const modules = import.meta.glob<{ default: ComponentType }>([
+const modules = import.meta.glob<Module>([
   "./analysis/index.tsx",
   "./analysis/ErrorDetail.tsx",
   "./analysis/ErrorDetail/index.tsx",
@@ -19,7 +22,22 @@ const modules = import.meta.glob<{ default: ComponentType }>([
 
 function page(...paths: string[]): Page | null {
   const loader = paths.map((p) => modules[p]).find(Boolean);
-  return loader ? lazy(loader) : null;
+  if (!loader) return null;
+  return lazy(async () => {
+    const m = await loader();
+    if (m.default) return { default: m.default };
+    if (m.ErrorDetail) return { default: routeErrorDetail(m.ErrorDetail) };
+    throw new Error(`${paths[0]} exports neither a default page nor ErrorDetail`);
+  });
+}
+
+/** /errors/:code → <ErrorDetail code onBack/>; Back returns to Top errors. */
+function routeErrorDetail(Detail: NonNullable<Module["ErrorDetail"]>): ComponentType {
+  return function ErrorDetailRoute() {
+    const { code = "" } = useParams();
+    const navigate = useNavigate();
+    return createElement(Detail, { key: code, code, onBack: () => navigate("/errors") });
+  };
 }
 
 export const TopErrorsPage = page("./analysis/index.tsx");

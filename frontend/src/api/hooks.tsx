@@ -21,6 +21,7 @@ import type {
   HeatmapCell,
   HeatmapMetric,
   HistoryPoint,
+  ErrorDetail,
   Insight,
   LineEvent,
   Loss,
@@ -33,8 +34,6 @@ import type {
 import { API_BASE, ApiError, api, errorText, qs } from "@/api/client";
 import { parseTime, toIso } from "@/lib/format";
 import type { PanelState } from "@/components/Panel";
-// Stage 4 of the mobile redesign builds the Now screen on mocks; stage 5 switches to /api/events.
-import eventsMock from "@/mocks/events.json";
 
 /** Uniform async shape for every hook, so every Panel can show loading / empty / error. */
 export interface Resource<T> {
@@ -365,9 +364,14 @@ function useFetch<T>(path: string | null, refreshKey: number): Resource<T> {
   );
 }
 
-/** GET /api/events?date — today's events up to sim_time, newest first. */
-export function useEvents(_date?: string): Resource<LineEvent[]> {
-  return { data: eventsMock as LineEvent[], loading: false, error: null };
+/** GET /api/events?date — the day's events up to sim_time, newest first. `null` skips. */
+export function useEvents(date: string | null): Resource<LineEvent[]> {
+  return useApi<LineEvent[]>(date ? `/events${qs({ date })}` : null);
+}
+
+/** GET /api/errors/{code}?from&to — when an error happens, what it costs and its fix. `null` skips. */
+export function useErrorDetail(code: string | null, period?: Period): Resource<ErrorDetail> {
+  return useApi<ErrorDetail>(code ? `/errors/${encodeURIComponent(code)}${qs(period ?? {})}` : null);
 }
 
 /** GET /api/insights — shared, fetched once per refresh for the whole app. */

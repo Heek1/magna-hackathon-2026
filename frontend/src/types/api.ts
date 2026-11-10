@@ -73,7 +73,8 @@ export interface Loss {
   loss_pcs: number;
   loss_pp: number;
   count: number;
-  fix: Fix | null;
+  /** Always sent by the backend (null when there is no countermeasure); optional for older callers. */
+  fix?: Fix | null;
 }
 
 /** What happened on the line: stop, defect, or speed loss (one per hour). */

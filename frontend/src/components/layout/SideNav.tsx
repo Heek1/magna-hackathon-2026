@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import type { TabItem } from "@/components/TabBar";
 import { cn } from "@/lib/utils";
+import { SimSettings } from "@/components/SimSettings";
 
 /** Left navigation for desktop and projector (≥ 1024 px); the same items as the phone TabBar. */
 export function SideNav({ items, className }: { items: TabItem[]; className?: string }) {
@@ -32,6 +33,7 @@ export function SideNav({ items, className }: { items: TabItem[]; className?: st
           </li>
         ))}
       </ul>
+      <SimSettings withLabel className="mt-auto w-full" />
     </nav>
   );
 }
