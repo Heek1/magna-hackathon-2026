@@ -30,7 +30,7 @@
   * Planned potential: **9,359 pcs** | Actual production: **8,251 pcs** (8,132 OK, 119 NOK).
   * Total lost capacity: **1,108 pcs**.
 * **Three Loss Pillars (Contract Formulas)**:
-  1. ⚡ **Speed Loss (Performance) — 52% (578 pcs lost)**:
+  1. ⚡ **Speed Loss (Performance) — 52% (579 pcs lost)**:
      * The largest hidden efficiency killer.
      * 19,621 s — line cycle slowdowns;
      * 11,999 s — equipment microstops;
@@ -42,7 +42,7 @@
 
 | OEE Factor | Actual | Magna Target | Loss in Pieces | Share of Total Loss |
 | :--- | :---: | :---: | :---: | :---: |
-| **Performance (Speed)** | 93.4% | 95.0% | **578 pcs** | **52.2%** |
+| **Performance (Speed)** | 93.4% | 95.0% | **579 pcs** | **52.2%** |
 | **Availability (Downtime)** | 95.6% | 96.0% | **410 pcs** | **37.0%** |
 | **Quality (Scrap)** | 98.6% | 99.0% | **119 pcs** | **10.8%** |
 | **OEE (Overall)** | **88.0%** | **85.0%** | **1,108 pcs** | **100.0%** |
@@ -50,7 +50,7 @@
 *Core Rule: Metrics are calculated strictly from raw sums, never by averaging percentages.*
 
 > 🎙️ **Speaker Notes (00:45 – 01:30)**:
-> "Where did those 1,108 electric drives vanish? Over half of all losses — 52% — were speed losses: silent microstops and cycle slowdowns totaling 578 pieces. Downtime accounts for 37%, or 410 lost pieces across 33 logged breakdowns. Quality scrap accounts for the remaining 11%, or 119 defective parts.
+> "Where did those 1,108 electric drives vanish? Over half of all losses — 52% — were speed losses: silent microstops and cycle slowdowns totaling 579 pieces. Downtime accounts for 37%, or 410 lost pieces across 33 logged breakdowns. Quality scrap accounts for the remaining 11%, or 119 defective parts.
 > Note that we strictly compute availability, performance, and quality from raw sums rather than averaging percentages. When we group downtime by station and error code instead of unreliable categories, systematic operational patterns immediately stand out."
 
 ---
@@ -118,7 +118,7 @@
      * Chronological "Errors today" feed from `/api/events`.
   2. **02 Top Errors Screen (`/analysis`)**:
      * Segmented tabs for **Stops**, **Defects**, and **Speed losses** ranked by pieces lost.
-     * **#1 "Fix First" Hero Card**: highlights `ST-038`, recurring pattern chip (*Every Wed 09:08*), loss impact (87 pcs), green solution block, and one-tap **Assign** button.
+     * **#1 "Fix First" Hero Card**: highlights `ST-038` — 87 pcs lost so far this month (Nov 25, 09:20; 100 pcs over the full month), recurring pattern chip (*Every Wed 09:08*), green solution block, and one-tap **Assign** button.
      * **Next to Fix List**: relative progress bars showing loss scale for immediate triage.
   3. **03 Error Detail Screen (`/analysis` subview)**:
      * Three KPI cards: frequency, downtime minutes, and lost pieces.
@@ -132,35 +132,36 @@
 > 🎙️ **Speaker Notes (03:00 – 04:00)**:
 > "Let us walk through the user experience on a smartphone. The interface is mobile-first, installs like an app on any operator's phone, and scales cleanly to plant monitors.
 > On the Now screen, operators immediately see the active line status. When Station Kamera trips on error ST-038, the hero card turns red, starts a live downtime timer, and surfaces the fix.
-> Swiping to Top Errors reveals our Fix First card: ST-038 leads the shift with 87 lost pieces. Tapping into Error Detail displays our PatternGrid: the supervisor sees that this stop strikes every Wednesday at 09:08, with the next occurrence countdown already ticking.
+> Swiping to Top Errors reveals our Fix First card: ST-038 leads with 87 pieces lost so far this month as of November 25, and 100 pieces over the full month. Tapping into Error Detail displays our PatternGrid: the supervisor sees that this stop strikes every Wednesday at 09:08, with the next occurrence countdown already ticking.
 > With a single tap on the sticky button, the supervisor assigns a standardized action to Maintenance. The task moves straight to the Action Board, closing the loop from incident detection to resolution."
 
 ---
 
 ### Slide 6. Business Impact & ROI: Turning Data into Delivered Output
-**Headline**: +3.5 percentage points in OEE = 323 additional electric drives per line every month.
+**Headline**: +2.74 percentage points in OEE = 253 additional good electric drives every month.
 
-* **Validated Impact (Based on Contract Formulas)**:
+* **Validated Impact (Based on Full Month Model & What-If Simulation)**:
   1. **Eliminate Two Chronic Weekly Stops (`ST-038` + `ST-047`)**:
      * Camera cleaning in autonomous maintenance + preventive leak test nest seal replacement.
-     * **Direct Gain: +1.7 percentage points OEE (+160 finished electric drives / month)**.
+     * **Direct Gain: +1.59 percentage points OEE (+147 good pcs / month)**.
+     * *Breakdown: `ST-038` alone = +1.00 pp (+92 good pcs); `ST-047` alone = +0.60 pp (+55 good pcs).*
   2. **Level Shift Kickoff & Post-Break Ramp-up (Hours 1 and 5)**:
      * Pre-shift autonomous maintenance staging + 5-minute pre-break parts replenishment by logistics.
-     * **Direct Gain: +1.1 percentage points OEE (+103 finished electric drives / month)**.
-  3. **Mitigate Top Scrap Causes (`Q-020` + `Q-026`)**:
-     * Press force-displacement SPC monitoring + start-of-shift screwdriver torque calibration.
-     * **Direct Gain: +0.7 percentage points OEE (+60 saved parts / month)**.
+     * **Direct Gain: +1.14 percentage points OEE (+105 good pcs / month)**.
+     * *Breakdown: Hour 1 lift = +59 good pcs; Hour 5 lift = +46 good pcs.*
+  3. **All Four Countermeasures Combined**:
+     * Eliminating both chronic stops and leveling hours 1 and 5 simultaneously.
+     * **Combined Gain: +2.74 percentage points OEE (+253 good pcs / month)**.
 * **Total Operational Value**:
-  * OEE growth: **from 88.0% to 91.5%** (+3.5 percentage points).
-  * Net production gain: **+323 electric drives per month** on a single assembly line.
+  * OEE growth: **from 88.0% to 90.8%** (+2.74 percentage points).
+  * Net production gain: **+253 good electric drives per month** on a single assembly line.
   * Payback period: **Immediate** (zero capital expenditure — operational standardization and existing staff).
 
 > 🎙️ **Speaker Notes (04:00 – 04:35)**:
-> "Let us examine the business return for Magna. Every number here is derived strictly from our validated mathematical model.
-> Eliminating just two chronic weekly stops — the camera lighting and leak test nest — delivers a 1.7 percentage point increase in monthly OEE, recovering 160 electric drives.
-> Leveling the startup efficiency of hours 1 and 5 adds another 1.1 percentage points, or 103 drives.
-> Tackling our top press-fit and torque defects saves 60 more units.
-> In total, this raises line OEE from 88.0% to 91.5%. That is 323 high-margin electric drive units recovered every month on a single line, with zero capital expenditure on new machinery."
+> "Let us examine the business return for Magna. Every number here is derived strictly from our validated mathematical model on the full month of data.
+> Eliminating just two chronic weekly stops — the camera lighting and leak test nest — delivers a 1.59 percentage point increase in monthly OEE, recovering 147 good electric drives.
+> Leveling the startup efficiency of hours 1 and 5 adds another 1.14 percentage points, or 105 good drives.
+> Implementing all four countermeasures together raises line OEE from 88.0% to 90.8%. That is 253 high-margin electric drive units recovered every month on a single line, with zero capital expenditure on new machinery."
 
 ---
 
