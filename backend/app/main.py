@@ -42,7 +42,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Magna OEE Improvement Engine", lifespan=lifespan)
-access.install(app, os.environ.get("ACCESS_KEY"))  # private demo link; open when unset
+access.install(app, os.environ.get("ACCESS_KEY", "").strip())  # private demo link; open when unset
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
