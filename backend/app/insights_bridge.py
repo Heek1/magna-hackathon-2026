@@ -3,7 +3,8 @@
 Expected interface in backend/insights/__init__.py:
     get_insights(data) -> list[dict]                      # /api/insights items
     what_if(data, remove, from_, to) -> dict              # {oee_before, oee_after, gain_pcs, gain_pp}
-    chat(question, data) -> str                           # raises if no GEMINI_API_KEY → 503
+    chat(question, data, history, code, role, actions) -> {answer, sources, followups}
+    suggestions(data, code, role) -> [str]                # both raise without GEMINI_API_KEY → 503
 where `data` = {"hours": df, "downtime": df, "nok": df}, trimmed to sim_time
 (original xlsx column names; df.attrs["sim_time"] holds the current simulation time).
 
@@ -20,9 +21,9 @@ try:
 except ImportError:
     what_if = None
 try:
-    from insights import chat  # type: ignore
+    from insights import chat, suggestions as _suggestions  # type: ignore
 except ImportError:
-    chat = None
+    chat = _suggestions = None
 try:
     from insights import upcoming as _upcoming  # type: ignore
 except ImportError:
@@ -79,7 +80,16 @@ def why(data: dict, code: str) -> str | None:
         return None
 
 
-def answer(question: str, data: dict) -> str:
+def answer(question: str, data: dict, history: list[dict] | None = None, code: str | None = None,
+           role: str | None = None, actions: list[dict] | None = None) -> dict:
+    """{answer, sources, followups}; raises when the LLM is not available (the API answers 503)."""
     if chat is None:
         raise ChatUnavailable("chat() is not implemented yet")
-    return chat(question, data)
+    return chat(question, data, history=history, code=code, role=role, actions=actions)
+
+
+def chat_suggestions(data: dict, code: str | None = None, role: str | None = None) -> list[str]:
+    """Starter questions; raises when the LLM is not available, so the app hides "Ask AI"."""
+    if _suggestions is None:
+        raise ChatUnavailable("suggestions() is not implemented yet")
+    return _suggestions(data, code, role)
