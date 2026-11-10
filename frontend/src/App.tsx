@@ -1,35 +1,45 @@
-import { Suspense } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { SimProvider } from "@/api/hooks";
-import { AppShell } from "@/components/layout/AppShell";
-import { navIcons, type NavItem } from "@/components/layout/SideNav";
-import { Panel } from "@/components/Panel";
-import LivePage from "@/pages/live/LivePage";
-import { externalPage } from "@/pages/registry";
+import { AppShell, DesktopBoard, ScreenSlot } from "@/components/layout/AppShell";
+import { useIsDesktop } from "@/lib/useMediaQuery";
+import NowPage from "@/pages/live/NowPage";
+import { ErrorDetailPage, FixesPage, TopErrorsPage } from "@/pages/registry";
 
-const AnalysisPage = externalPage("analysis");
-const ActionsPage = externalPage("actions");
+// Dev-only board of the shared components (not in the production build).
+const ComponentsBoard = import.meta.env.DEV ? lazy(() => import("@/pages/dev/ComponentsBoard")) : null;
 
-const nav: NavItem[] = [
-  { to: "/", label: "Live", icon: navIcons.live, available: true },
-  { to: "/analysis", label: "Analysis", icon: navIcons.analysis, available: !!AnalysisPage },
-  { to: "/actions", label: "Actions", icon: navIcons.actions, available: !!ActionsPage },
-];
+const topErrors = <ScreenSlot page={TopErrorsPage} name="Top errors" file="src/pages/analysis/index.tsx" />;
+const errorDetail = (
+  <ScreenSlot page={ErrorDetailPage} name="Error detail" file="src/pages/analysis/ErrorDetail.tsx" />
+);
+const fixes = <ScreenSlot page={FixesPage} name="Fixes" file="src/pages/actions/index.tsx" />;
 
-function Shell() {
-  const { pathname } = useLocation();
-  const title = nav.find((n) => n.to === pathname)?.label ?? "Live";
+/** Routes: / (Now), /errors (Top errors), /errors/:code (Error detail), /fixes. */
+function Screens() {
+  const desktop = useIsDesktop();
+  const board = (detail?: JSX.Element) => <DesktopBoard now={<NowPage />} errors={topErrors} detail={detail} />;
+
   return (
-    <AppShell nav={nav} title={title}>
-      <Suspense fallback={<Panel state="loading" className="h-full" />}>
-        <Routes>
-          <Route path="/" element={<LivePage />} />
-          {AnalysisPage && <Route path="/analysis" element={<AnalysisPage />} />}
-          {ActionsPage && <Route path="/actions" element={<ActionsPage />} />}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
-    </AppShell>
+    <Routes>
+      {ComponentsBoard && (
+        <Route
+          path="/components"
+          element={
+            <Suspense fallback={null}>
+              <ComponentsBoard />
+            </Suspense>
+          }
+        />
+      )}
+      <Route element={<AppShell />}>
+        <Route index element={desktop ? board() : <NowPage />} />
+        <Route path="errors" element={desktop ? board() : topErrors} />
+        <Route path="errors/:code" element={desktop ? board(errorDetail) : errorDetail} />
+        <Route path="fixes" element={desktop ? <div className="h-full overflow-y-auto p-6">{fixes}</div> : fixes} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   );
 }
 
@@ -37,7 +47,7 @@ export default function App() {
   return (
     <SimProvider>
       <BrowserRouter>
-        <Shell />
+        <Screens />
       </BrowserRouter>
     </SimProvider>
   );

@@ -35,36 +35,48 @@ export function Panel({
   children,
 }: PanelProps) {
   return (
-    <section className={cn("flex min-h-0 flex-col rounded border bg-surface", className)}>
+    <section className={cn("flex min-h-0 flex-col rounded-card bg-bg-card shadow-card", className)}>
       {(title || actions) && (
-        <header className="flex h-11 shrink-0 items-center gap-3 border-b px-4">
-          {title && <h2 className="label text-text/80">{title}</h2>}
-          {meta && <span className="label text-dim">{meta}</span>}
+        <header className="flex h-12 shrink-0 items-center gap-3 border-b px-card-pad">
+          {title && <h2 className="text-title-m text-text-primary">{title}</h2>}
+          {meta && <span className="text-caption text-text-tertiary">{meta}</span>}
           {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
         </header>
       )}
-      <div className={cn("relative min-h-0 flex-1 p-4", bodyClassName)}>
-        {state === "ready" && children}
-        {state === "loading" && <PanelSkeleton />}
-        {state === "empty" && (
-          <PanelMessage icon={<Inbox className="h-5 w-5" />} text={emptyText} />
-        )}
-        {state === "error" && (
-          <PanelMessage
-            icon={<CircleAlert className="h-5 w-5 text-crit" />}
-            text={errorText ?? "Could not load data"}
-            action={
-              onRetry && (
-                <Button size="sm" onClick={onRetry}>
-                  <RotateCw className="h-3.5 w-3.5" /> Retry
-                </Button>
-              )
-            }
-          />
-        )}
+      <div className={cn("relative min-h-0 flex-1 p-card-pad", bodyClassName)}>
+        <StateView state={state} emptyText={emptyText} errorText={errorText} onRetry={onRetry}>
+          {children}
+        </StateView>
       </div>
     </section>
   );
+}
+
+/** The four states of a data block, for content that is not wrapped in a Panel. */
+export function StateView({
+  state,
+  emptyText = "No data for this period",
+  errorText,
+  onRetry,
+  children,
+}: Pick<PanelProps, "state" | "emptyText" | "errorText" | "onRetry" | "children">) {
+  if (state === "loading") return <PanelSkeleton />;
+  if (state === "empty") return <PanelMessage icon={<Inbox className="h-5 w-5" />} text={emptyText} />;
+  if (state === "error")
+    return (
+      <PanelMessage
+        icon={<CircleAlert className="h-5 w-5 text-crit" />}
+        text={errorText ?? "Could not load data"}
+        action={
+          onRetry && (
+            <Button size="sm" onClick={onRetry}>
+              <RotateCw className="h-3.5 w-3.5" /> Retry
+            </Button>
+          )
+        }
+      />
+    );
+  return <>{children}</>;
 }
 
 function PanelMessage({ icon, text, action }: { icon: ReactNode; text: string; action?: ReactNode }) {

@@ -57,6 +57,14 @@ export interface HeatmapCell {
 }
 
 export type LossType = "downtime" | "microstop" | "retest" | "slowdown" | "nok";
+
+/** Countermeasure from the knowledge base (backend/insights/countermeasures.json). */
+export interface Fix {
+  action: string;
+  method: string;
+  owner_role: string;
+}
+
 export interface Loss {
   type: LossType;
   code: string;
@@ -65,6 +73,42 @@ export interface Loss {
   loss_pcs: number;
   loss_pp: number;
   count: number;
+  /** Always sent by the backend (null when there is no countermeasure); optional for older callers. */
+  fix?: Fix | null;
+}
+
+/** What happened on the line: stop, defect, or speed loss (one per hour). */
+export type EventKind = "stop" | "defect" | "speed";
+
+/** GET /api/events?date — events of the day up to sim_time, newest first. */
+export interface LineEvent {
+  time: IsoDateTime;
+  kind: EventKind;
+  code: string;
+  title: string;
+  detail: string;
+  value: number;
+  unit: string; // "min" | "pcs"
+  active: boolean;
+}
+
+export type Weekday = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+
+/** GET /api/errors/{code}?from&to */
+export interface ErrorDetail {
+  code: string;
+  kind: EventKind;
+  description: string;
+  device: string | null;
+  count: number;
+  minutes: number;
+  loss_pcs: number;
+  loss_pp: number;
+  pattern: { weekday: Weekday; hour: number; count: number }[];
+  occurrences: { start: IsoDateTime; minutes: number | null; pcs: number }[];
+  next_expected: IsoDateTime | null;
+  fix: Fix | null;
+  gain_pp: number;
 }
 
 export type InsightKind = "recurring_stop" | "prediction" | "slow_hour" | "quality" | "anomaly";

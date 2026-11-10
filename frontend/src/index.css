@@ -4,42 +4,38 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
   }
   html,
   body,
   #root {
-    @apply h-full;
+    @apply min-h-full;
   }
   body {
-    @apply bg-bg font-sans text-sm text-text antialiased;
+    @apply bg-bg-canvas font-sans text-body text-text-primary antialiased;
   }
   * {
     @apply border-border;
   }
   :focus-visible {
-    @apply outline outline-1 outline-offset-2 outline-data;
-  }
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply rounded bg-border-strong;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
+    @apply outline outline-2 outline-offset-2 outline-status-speed;
   }
 }
 
 @layer components {
-  /* Every number: monospace with tabular figures. */
+  /* Numbers: Geist Mono with tabular figures. */
   .num {
     @apply font-mono tabular-nums;
   }
-  /* Every label: small, muted, uppercase. */
+  /* Overline (Figma text style): 11/14 SemiBold uppercase, +6 % tracking, tertiary. */
+  /* (Not `.overline`: that is Tailwind's text-decoration utility.) */
+  .overline-label {
+    @apply font-sans text-overline uppercase text-text-tertiary;
+  }
+  /* Deprecated alias of .overline for older pages. */
   .label {
-    @apply font-sans text-label font-medium uppercase text-muted;
+    @apply font-sans text-label uppercase text-text-tertiary;
   }
 }
 
