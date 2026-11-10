@@ -1,28 +1,28 @@
-ЗАВДАННЯ УЧАСНИКА 4. МОЄ ЗАВДАННЯ — чотири частини по черзі.
-A (до 4-ї години). backend/insights/countermeasures.json. Для кожного з 82 кодів аркуша
-   Ciselnik_chyb — запис {action, method, owner_role}: action — конкретний контрзахід одним
-   реченням; method — SMED | Poka-yoke | SPC | 5-Why | Autonomous maintenance | Standard work |
+MEMBER 4 TASK. MY TASK — four parts, in order.
+A (by hour 4). backend/insights/countermeasures.json. For each of the 82 codes in the
+   Ciselnik_chyb sheet — an entry {action, method, owner_role}: action — a concrete countermeasure in one
+   sentence; method — SMED | Poka-yoke | SPC | 5-Why | Autonomous maintenance | Standard work |
    Calibration | Preventive maintenance; owner_role — Maintenance | Quality | Logistics |
-   Team leader | Process engineer. Найретельніше — коди, що є в даних: ST-038, ST-016, ST-046,
-   ST-047, ST-001, ST-017, Q-020, Q-026, Q-030, Q-031. Додай ключі slow_hour_1 (повільний
-   старт зміни), slow_hour_5 (рестарт після перерви), microstop, retest. Орієнтири з матеріалів
-   Magna: камера — чищення і перевірка освітлення в автономному обслуговуванні; рестарт —
-   лінія і матеріал готові до кінця перерви; пресування — моніторинг сили й позиції
-   з SPC-сигналом; гвинти — калібрування на початку зміни. Перевір валідність JSON і всі 82 коди.
-B (години 8–16). Сторінки у frontend/src/pages/analysis і frontend/src/pages/actions.
-   Використовуй лише наявні компоненти з frontend/src/components/ і токени теми; нових
-   кольорів і стилів не вводь, спільні файли не змінюй.
-   Analysis: графік OEE по днях із лінією цілі; теплова карта "день × година" з перемикачем
-   метрики (/api/heatmap); Парето причин із перемикачем простої / брак (/api/losses);
-   вибір періоду.
-   Actions: дошка з трьома колонками open / in_progress / done, зміна статусу перетягуванням
-   або кнопкою, на картці — відповідальний, пов'язаний інсайт і очікуваний ефект у штуках.
-C (години 16–20). Відкрий застосунок у браузері та пройди сценарій: перехід на 2026-11-25 08:30
-   → попередження про камеру із зворотним відліком → о 09:08 банер простою і провал на
-   графіку → створити дію → змінити статус → What if без ST-038 → Analysis. Склади список
-   помилок зі скриншотами; чужий код не змінюй.
-D (паралельно з C). docs/pitch.md, 5 хвилин, 7 слайдів із текстом доповідача: проблема; дані
-   (OEE 88,0 %, втрачено 1108 шт: 52 % швидкість, 37 % простої, 11 % брак); що знайшов движок
-   (усі 4 зміни нижче цілі — середи через ST-038; ST-047 щочетверга; повільні години 1 і 5);
-   як працює рішення; демо; ефект (без двох повторюваних зупинок ≈ +1,7 п.п. OEE, вирівнювання
-   годин 1 і 5 ≈ +1,1 п.п.); подальші кроки.
+   Team leader | Process engineer. Most carefully — the codes present in the data: ST-038, ST-016, ST-046,
+   ST-047, ST-001, ST-017, Q-020, Q-026, Q-030, Q-031. Add keys slow_hour_1 (slow shift
+   start), slow_hour_5 (restart after break), microstop, retest. Guidance from the Magna
+   materials: camera — cleaning and lighting check in autonomous maintenance; restart —
+   line and material ready before the break ends; pressing — force and position monitoring
+   with an SPC signal; screws — calibration at the start of the shift. Validate the JSON and all 82 codes.
+B (hours 8–16). Pages in frontend/src/pages/analysis and frontend/src/pages/actions.
+   Use only existing components from frontend/src/components/ and the theme tokens; do not
+   introduce new colors or styles, do not change shared files.
+   Analysis: daily OEE chart with a target line; "day × hour" heatmap with a metric
+   switch (/api/heatmap); Pareto of causes with a downtime / scrap switch (/api/losses);
+   period selection.
+   Actions: a board with three columns open / in_progress / done, status change by drag and drop
+   or a button; each card shows the owner, the linked insight and the expected gain in pieces.
+C (hours 16–20). Open the app in the browser and run the scenario: jump to 2026-11-25 08:30
+   → camera warning with a countdown → at 09:08 downtime banner and a dip on the
+   chart → create an action → change its status → What if without ST-038 → Analysis. Compile a list of
+   bugs with screenshots; do not change other members' code.
+D (in parallel with C). docs/pitch.md, 5 minutes, 7 slides with speaker notes: problem; data
+   (OEE 88.0 %, 1108 pcs lost: 52 % speed, 37 % downtime, 11 % scrap); what the engine found
+   (all 4 shifts below target — Wednesdays because of ST-038; ST-047 every Thursday; slow hours 1 and 5);
+   how the solution works; demo; impact (without the two recurring stops ≈ +1.7 pp OEE, levelling
+   hours 1 and 5 ≈ +1.1 pp); next steps.

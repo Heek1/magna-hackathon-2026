@@ -1,24 +1,24 @@
-ЗАВДАННЯ УЧАСНИКА 2. МОЄ ЗАВДАННЯ backend/insights/. Вхід усіх функцій — три DataFrame (години, простої, брак),
-обрізані до sim_time.
-Етап 1 (до 8-ї години): get_insights(data) -> list[dict] у форматі /api/insights. Детектори
-на правилах і статистиці, без зовнішніх сервісів:
-1. recurring_stop: код простою, що повторюється в той самий день тижня і годину зміни
-   (у даних: ST-038 щосереди о 09:08 по 25 хв; ST-047 щочетверга о 08:08 по 15 хв).
-2. prediction: якщо для сьогоднішнього дня тижня є повторюваний простій, який ще не настав, —
-   попередження з expected_at і очікуваною втратою. Після настання події інсайт зникає.
-3. slow_hour: години зміни зі стабільно нижчою Performance (у даних: 1-ша 88,5 %,
-   5-та 86,9 % проти ~94,5 % в інших).
-4. quality: Парето кодів браку і сплеск коду відносно його середнього.
-5. anomaly: поточна година, де OEE чи мікрозупинки відхиляються від норми цієї години
-   більш ніж на 2 стандартні відхилення.
-Кожен інсайт: loss_pcs, loss_pp, evidence з конкретними числами й датами, сортування за
-loss_pcs. recommendation — з backend/insights/countermeasures.json за ключем code або kind
-(файл готує інший учасник, формат {key: {action, method, owner_role}}); ключа немає — null.
-Тест: на повних даних знаходяться ST-038, ST-047 і повільні години 1 та 5.
-Етап 2 (до 16-ї години):
-6. what_if(data, remove, from, to): прибрані хвилини простою стають часом роботи з фактичними
-   Performance і Quality періоду; ключі slow_hour_1 і slow_hour_5 піднімають Performance
-   години до медіани інших. Повертає oee_before, oee_after, gain_pcs, gain_pp.
-7. chat(question, data): за наявності GEMINI_API_KEY відповідає через LLM, передаючи йому
-   стислий зріз даних (KPI, втрати, інсайти) та інструкцію відповідати лише на їх основі;
-   без ключа піднімає виняток, який API перетворює на 503.
+MEMBER 2 TASK. MY TASK: backend/insights/. The input of every function is three DataFrames (hours, downtime, scrap),
+trimmed to sim_time.
+Stage 1 (by hour 8): get_insights(data) -> list[dict] in the /api/insights format. Detectors
+based on rules and statistics, no external services:
+1. recurring_stop: a downtime code that repeats on the same weekday and shift hour
+   (in the data: ST-038 every Wednesday at 09:08 for 25 min; ST-047 every Thursday at 08:08 for 15 min).
+2. prediction: if today's weekday has a recurring downtime that has not happened yet —
+   a warning with expected_at and the expected loss. Once the event occurs, the insight disappears.
+3. slow_hour: shift hours with consistently lower Performance (in the data: hour 1 88.5 %,
+   hour 5 86.9 % vs ~94.5 % for the others).
+4. quality: Pareto of scrap codes and a spike of a code relative to its average.
+5. anomaly: the current hour where OEE or microstops deviate from that hour's norm
+   by more than 2 standard deviations.
+Every insight: loss_pcs, loss_pp, evidence with concrete numbers and dates, sorted by
+loss_pcs. recommendation — from backend/insights/countermeasures.json by key code or kind
+(the file is prepared by another member, format {key: {action, method, owner_role}}); no key — null.
+Test: on the full data, ST-038, ST-047 and slow hours 1 and 5 are found.
+Stage 2 (by hour 16):
+6. what_if(data, remove, from, to): removed downtime minutes become run time with the actual
+   Performance and Quality of the period; keys slow_hour_1 and slow_hour_5 raise the hour's
+   Performance to the median of the other hours. Returns oee_before, oee_after, gain_pcs, gain_pp.
+7. chat(question, data): if GEMINI_API_KEY is set, answers via an LLM, passing it a compact
+   data snapshot (KPIs, losses, insights) and an instruction to answer only based on it;
+   without the key, raises an exception that the API converts to 503.

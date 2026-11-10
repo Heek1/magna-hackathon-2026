@@ -1,16 +1,16 @@
-ЗАВДАННЯ УЧАСНИКА 1. МОЄ ЗАВДАННЯ backend/ (усе, крім backend/insights/).
-Етап 1 (до 6-ї години):
-1. Завантажувач xlsx у pandas з відсіюванням рядка "MESIAC" і перевіркою структури аркушів.
-2. Модуль розрахунку OEE і втрат для довільного діапазону. Тест: кожна зміна збігається
-   з Kontrola_zmien, місячні підсумки — з контрольними числами.
-3. Симулятор: sim_time, швидкість, пауза, стрибок. Поточна неповна година віддається
-   пропорційно до минулих хвилин; простій стає active_downtime між Cas_od і Cas_do.
-4. Ендпоінти /api/state, /api/stream (SSE), /api/history, /api/heatmap, /api/losses,
-   /api/sim/control, CRUD /api/actions у SQLite. CORS для порту 5173.
-5. /api/insights, /api/whatif, /api/chat викликають функції з backend/insights/
-   (get_insights, what_if, chat), які пише інший учасник; до їх появи — заглушки
-   з правильною формою відповіді.
-6. Збережи приклад відповіді кожного ендпоінта у frontend/src/mocks/*.json.
-Етап 2 (до 16-ї години): /api/report, /api/upload, docker-compose.yml для backend і frontend,
-README з командою запуску.
-Спершу покажи план файлів, потім реалізуй.
+MEMBER 1 TASK. MY TASK: backend/ (everything except backend/insights/).
+Stage 1 (by hour 6):
+1. xlsx loader into pandas that filters out the "MESIAC" row and validates the sheet structure.
+2. OEE and loss calculation module for an arbitrary range. Test: every shift matches
+   Kontrola_zmien, monthly totals match the control numbers.
+3. Simulator: sim_time, speed, pause, jump. The current incomplete hour is returned
+   proportionally to the elapsed minutes; a downtime becomes active_downtime between Cas_od and Cas_do.
+4. Endpoints /api/state, /api/stream (SSE), /api/history, /api/heatmap, /api/losses,
+   /api/sim/control, CRUD /api/actions in SQLite. CORS for port 5173.
+5. /api/insights, /api/whatif, /api/chat call functions from backend/insights/
+   (get_insights, what_if, chat), written by another member; until they exist — stubs
+   with the correct response shape.
+6. Save a sample response of every endpoint to frontend/src/mocks/*.json.
+Stage 2 (by hour 16): /api/report, /api/upload, docker-compose.yml for backend and frontend,
+README with the run command.
+Show the file plan first, then implement.
