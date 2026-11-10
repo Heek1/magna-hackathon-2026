@@ -484,7 +484,7 @@ def test_chat_snapshot_has_weekdays_upcoming_gains_and_open_actions(ds, llm):
     chat("What should I prepare for tomorrow?", at(ds, "2026-11-25 09:20"), actions=actions)
     snap = llm.snapshot
     wednesday = next(d for d in snap["oee_by_weekday"] if d["weekday"] == "Wednesday")
-    assert wednesday["oee"] == min(d["oee"] for d in snap["oee_by_weekday"])
+    assert wednesday["oee_pct"] == min(d["oee_pct"] for d in snap["oee_by_weekday"]) == 81.9
     assert snap["upcoming_stops"][0]["code"] == "ST-047"
     assert snap["upcoming_stops"][0]["expected_at"] == "2026-11-26T08:08:00"
     assert snap["upcoming_stops"][0]["fix"]["owner_role"] == "Maintenance"
@@ -556,6 +556,20 @@ def test_chat_llm_failures_are_unavailable(ds, llm):
     llm.text = json.dumps({"answer": "", "sources": [], "followups": []})
     with pytest.raises(ChatUnavailable):
         chat("Why?", at(ds, "2026-11-25 09:20"))
+
+
+def test_chat_retries_a_busy_llm_once(ds, llm, monkeypatch):
+    import urllib.error
+    replies = [urllib.error.HTTPError("u", 503, "Unavailable", {}, None), REPLY]
+
+    def flaky(request, timeout):
+        llm.text = replies.pop(0)
+        return llm(request, timeout)
+
+    monkeypatch.setattr("urllib.request.urlopen", flaky)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    assert chat("Why?", at(ds, "2026-11-25 09:20"))["answer"].startswith("ST-038")
+    assert len(llm.calls) == 2
 
 
 def test_chat_empty_question_does_not_call_the_llm(ds, llm):

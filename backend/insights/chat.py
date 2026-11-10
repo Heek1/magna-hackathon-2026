@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 
@@ -22,6 +23,8 @@ from .whatif import SPEED_COLUMNS, what_if
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 DEFAULT_MODEL = "gemini-3.5-flash-lite"  # override with GEMINI_MODEL
 TIMEOUT_S = 10
+RETRY_PAUSE_S = 0.5
+RETRY_MIN_S = 4    # retry only if at least this much of the budget is left
 HISTORY_TURNS = 6
 MAX_TEXT = 600          # characters kept per history turn
 MAX_SOURCES = 4
@@ -32,8 +35,8 @@ SYSTEM = (
     "(10 stations, ideal cycle 60 s, shift 06:00-14:00, OEE target 85 %). Answer only from the JSON "
     "snapshot in the last message. Quote numbers, codes and dates exactly as the snapshot gives them "
     "and do not calculate new ones: for gains use the what_if entries. If the snapshot does not "
-    "contain the answer, say so. 1 lost piece = 1 planned minute; pp = OEE percentage points. "
-    "Write ratios such as oee 0.8186 as percentages with one decimal: 81.9 %.\n"
+    "contain the answer, say so. 1 lost piece = 1 planned minute; pp = OEE percentage points; "
+    "*_pct values are percentages.\n"
     "If user_role is set, answer from that role's point of view and put the fixes owned by that role "
     "first. If focus_error is set, the question is about that error unless it says otherwise.\n"
     "At most 80 words, plain text without markdown. Answer in the language of the question.\n"
@@ -68,14 +71,18 @@ def _key() -> str:
 
 # ---------- snapshot ----------
 
+def _pct(part: float, whole: float) -> float:
+    return round(100 * part / whole, 1) if whole else 0.0
+
+
 def _kpis(hours) -> dict:
     plan, run = float(hours["Plan_min"].sum()), float(hours["Chod_min"].sum())
     produced, ok = float(hours["Vyrobene_ks"].sum()), float(hours["OK_ks"].sum())
-    return {
-        "oee": round(ok / plan, 4) if plan else 0.0,
-        "availability": round(run / plan, 4) if plan else 0.0,
-        "performance": round(produced / run, 4) if run else 0.0,
-        "quality": round(ok / produced, 4) if produced else 0.0,
+    return {  # percentages ready to quote, so the model never rounds or converts
+        "oee_pct": _pct(ok, plan),
+        "availability_pct": _pct(run, plan),
+        "performance_pct": _pct(produced, run),
+        "quality_pct": _pct(ok, produced),
         "lost_pcs": round(plan - ok, 1),
         "downtime_min": round(float(hours["Prestoj_min"].sum()), 1),
         "nok": round(float(hours["NOK_ks"].sum()), 1),
@@ -87,7 +94,7 @@ def _by_weekday(ctx) -> list[dict]:
     for wd, rows in ctx.hours.groupby(ctx.hours["date"].dt.day_of_week):
         k = _kpis(rows)
         out.append({"weekday": WEEKDAYS[int(wd)], "shifts": int(rows["date"].nunique()),
-                    "oee": k["oee"], "downtime_min": k["downtime_min"], "nok": k["nok"]})
+                    "oee_pct": k["oee_pct"], "downtime_min": k["downtime_min"], "nok": k["nok"]})
     return out
 
 
@@ -110,7 +117,7 @@ def _losses(ctx) -> list[dict]:
 def _gain(data, remove: list[str]) -> dict:
     r = what_if(data, remove)
     return {"remove": remove, "gain_pp": r["gain_pp"], "gain_pcs": r["gain_pcs"],
-            "oee_before": r["oee_before"], "oee_after": r["oee_after"]}
+            "oee_before_pct": round(100 * r["oee_before"], 1), "oee_after_pct": round(100 * r["oee_after"], 1)}
 
 
 def _focus(ctx, data, code: str, fixes: dict) -> dict | None:
@@ -180,7 +187,7 @@ def build_snapshot(data, code: str | None = None, role: str | None = None,
     snapshot = {
         "sim_time": f"{ctx.sim_time:%Y-%m-%d %a %H:%M}" if ctx.sim_time is not None else None,
         "user_role": role,
-        "oee_target": 0.85,
+        "oee_target_pct": 85.0,
         "period": {"from": f"{ctx.hours['date'].min():%Y-%m-%d}",
                    "to": f"{ctx.hours['date'].max():%Y-%m-%d}", "shifts": int(ctx.hours["date"].nunique()),
                    **_kpis(ctx.hours)},
@@ -224,20 +231,28 @@ def _parse(text: str) -> dict:
 
 
 def _call(key: str, body: dict) -> str:
+    """The model's text. A busy service (429 / 5xx) is tried once more while the 10 s budget lasts."""
     request = urllib.request.Request(
         API_URL.format(model=os.environ.get("GEMINI_MODEL", "").strip() or DEFAULT_MODEL),
         data=json.dumps(body).encode("utf-8"),
         headers={"Content-Type": "application/json", "x-goog-api-key": key},
     )
-    try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
-            reply = json.load(response)
-        parts = reply["candidates"][0]["content"]["parts"]
-        return "".join(part.get("text", "") for part in parts if not part.get("thought"))
-    except urllib.error.HTTPError as error:
-        raise ChatUnavailable(f"LLM service returned HTTP {error.code}") from error
-    except (OSError, KeyError, IndexError, TypeError, ValueError) as error:
-        raise ChatUnavailable(f"LLM service did not answer ({type(error).__name__})") from error
+    deadline = time.monotonic() + TIMEOUT_S
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(request, timeout=max(1.0, deadline - time.monotonic())) as response:
+                reply = json.load(response)
+            parts = reply["candidates"][0]["content"]["parts"]
+            return "".join(part.get("text", "") for part in parts if not part.get("thought"))
+        except urllib.error.HTTPError as error:
+            busy = error.code == 429 or error.code >= 500
+            if attempt == 0 and busy and deadline - time.monotonic() > RETRY_MIN_S:
+                time.sleep(RETRY_PAUSE_S)
+                continue
+            raise ChatUnavailable(f"LLM service returned HTTP {error.code}") from error
+        except (OSError, KeyError, IndexError, TypeError, ValueError) as error:
+            raise ChatUnavailable(f"LLM service did not answer ({type(error).__name__})") from error
+    raise ChatUnavailable("LLM service did not answer")
 
 
 def chat(question: str, data, history: list[dict] | None = None, code: str | None = None,
@@ -288,7 +303,7 @@ def suggestions(data, code: str | None = None, role: str | None = None) -> list[
     out = []
     if not ctx.hours.empty and ctx.hours["date"].nunique() >= 5:
         days = _by_weekday(ctx)
-        worst = min(days, key=lambda d: d["oee"])
+        worst = min(days, key=lambda d: d["oee_pct"])
         out.append(f"Why is OEE low on {worst['weekday']}s?")
     out.append(f"What should {who} prepare for tomorrow?")
     out.append("Which error costs us the most?")
