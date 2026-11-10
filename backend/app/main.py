@@ -257,3 +257,25 @@ async def upload(file: UploadFile):
     sim.version += 1
     return {"rows": {"hours": len(ds.hours), "downtime": len(ds.downtime), "nok": len(ds.nok)},
             "sim_time": sim.sim_time.isoformat()}
+
+
+# ---------- built frontend (one server for the public demo) ----------
+# When STATIC_DIR points at `frontend/dist`, this app also serves the phone app, so a single
+# container gives one public URL. Locally (vite dev server) the folder does not exist: API only.
+STATIC_DIR = Path(os.environ.get("STATIC_DIR", str(BACKEND_DIR.parent / "frontend" / "dist")))
+
+if (STATIC_DIR / "index.html").is_file():
+    from fastapi.responses import FileResponse
+
+    _static_root = STATIC_DIR.resolve()
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str):
+        if path.startswith("api/"):
+            raise HTTPException(404, "not found")
+        file = (_static_root / path).resolve()
+        if path and file.is_file() and _static_root in file.parents:
+            # Hashed assets can be cached for long; the service worker and index must stay fresh.
+            cache = "no-cache" if file.name in ("sw.js", "index.html", "manifest.webmanifest") else "public, max-age=31536000, immutable"
+            return FileResponse(file, headers={"Cache-Control": cache})
+        return FileResponse(_static_root / "index.html", headers={"Cache-Control": "no-cache"})
