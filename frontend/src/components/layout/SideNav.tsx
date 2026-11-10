@@ -16,7 +16,7 @@ export const navIcons = { live: Activity, analysis: ChartColumn, actions: ListCh
 export function SideNav({ items }: { items: NavItem[] }) {
   return (
     <nav className="flex w-56 shrink-0 flex-col border-r bg-bg">
-      <div className="flex h-16 items-center gap-2.5 border-b px-5">
+      <div className="flex h-[72px] items-center gap-2.5 border-b px-5">
         <span className="h-3 w-3 bg-accent" aria-hidden />
         <div className="flex flex-col leading-tight">
           <span className="num text-sm font-semibold tracking-wide text-text">OEE ENGINE</span>
