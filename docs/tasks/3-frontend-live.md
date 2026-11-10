@@ -1,3 +1,5 @@
+> **Update:** the visual design and the screens below are replaced by [the design brief](../design-brief.md) (mobile-first, Figma linked there). Where this task and the brief disagree, follow the brief.
+
 MEMBER 3 TASK. MY TASK: frontend/ — scaffold, design system and the Live page. The Analysis
 and Actions pages are built by another member on top of my components, so the components must be
 reusable and live in frontend/src/components/.
