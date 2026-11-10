@@ -24,6 +24,19 @@ def device_en(name):
     return DEVICE_EN.get(name, name) if isinstance(name, str) else name
 
 
+def english(value):
+    """Station names in free text (insight titles and evidence) → English; walks lists and dicts."""
+    if isinstance(value, str):
+        for sk, en in DEVICE_EN.items():
+            value = value.replace(sk, en)
+        return value
+    if isinstance(value, list):
+        return [english(v) for v in value]
+    if isinstance(value, dict):
+        return {k: english(v) for k, v in value.items()}
+    return value
+
+
 def load_fixes(path: Path = FIXES_PATH) -> dict[str, dict]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -60,9 +73,10 @@ def events(hours: pd.DataFrame, downtime: pd.DataFrame, nok: pd.DataFrame,
         pcs = float(g["NOK_ks"].sum())
         if pcs <= 0:
             continue
+        # The current hour is scaled to the elapsed part, so pcs can be fractional: show whole pieces.
         out.append({"time": starts[hid], "kind": "defect", "code": code,
                     "title": code, "detail": g["Popis_EN"].iloc[0],
-                    "value": round(pcs, 1), "unit": "pcs", "active": False})
+                    "value": max(1, round(pcs)), "unit": "pcs", "active": False})
 
     for _, r in hours.iterrows():
         parts = {code: float(r[col]) / 60 for code, (col, _) in SPEED_CODES.items()}

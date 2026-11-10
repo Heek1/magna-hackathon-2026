@@ -67,3 +67,14 @@ def test_upcoming_and_why():
     assert c.get("/api/upcoming", params={"hours": 0}).status_code == 422
     why = c.get("/api/errors/ST-038").json()["why"]
     assert why and "Wednesday" in why
+
+
+def test_english_station_names_and_whole_defects():
+    from app.errors import english
+    assert english({"e": ["at 09:08 on Kamera"]}) == {"e": ["at 09:08 on Camera"]}
+    c = TestClient(app)
+    c.post("/api/sim/control", json={"paused": True, "jump_to": "2026-11-25T08:30:00"})
+    import json
+    assert "Kamera" not in json.dumps(c.get("/api/insights").json())
+    defects = [e for e in c.get("/api/events").json() if e["kind"] == "defect"]
+    assert defects and all(isinstance(e["value"], int) and e["value"] >= 1 for e in defects)
