@@ -41,6 +41,7 @@ def main() -> None:
                                           "insight_id": None, "owner": "Team leader"}).json()
     c.patch(f"/api/actions/{second['id']}", json={"status": "in_progress"})
     samples["actions"] = c.get("/api/actions")
+    samples["report"] = c.get("/api/report")
 
     for name, resp in samples.items():
         body = {"status": resp.status_code, "body": resp.json()} if name == "chat_503" else resp.json()

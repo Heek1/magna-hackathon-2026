@@ -9,12 +9,12 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import data, insights_bridge, oee
+from . import data, insights_bridge, oee, report
 from .db import ActionStore
 from .sim import Simulator
 
@@ -198,3 +198,29 @@ def sim_control(body: SimControlIn):
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     return {"sim_time": sim.sim_time.isoformat(), "speed": sim.speed, "paused": sim.paused}
+
+
+# ---------- stage 2 ----------
+
+@app.get("/api/report")
+def get_report(day: Annotated[date | None, Query(alias="date")] = None):
+    snap = sim.snapshot()
+    day = day or snap.sim_time.date()
+    if not (snap.hours["Datum"].dt.date == day).any():
+        raise HTTPException(404, f"no data for {day} up to sim_time {snap.sim_time.isoformat()}")
+    return report.build(day, snap.hours, snap.downtime, snap.nok,
+                        insights_bridge.insights(snap.as_frames()), actions.list())
+
+
+@app.post("/api/upload")
+async def upload(file: UploadFile):
+    try:
+        ds = data.load(await file.read())
+    except data.DataError as exc:
+        raise HTTPException(422, f"Invalid workbook: {exc}") from exc
+    except Exception as exc:  # not an xlsx at all
+        raise HTTPException(422, f"Cannot read file: {exc}") from exc
+    sim.load(ds)
+    sim.version += 1
+    return {"rows": {"hours": len(ds.hours), "downtime": len(ds.downtime), "nok": len(ds.nok)},
+            "sim_time": sim.sim_time.isoformat()}
