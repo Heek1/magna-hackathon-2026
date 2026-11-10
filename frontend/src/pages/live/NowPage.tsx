@@ -4,17 +4,22 @@ import type { Confidence, LineEvent, Loss, SimState, UpcomingStop } from "@/type
 import { resourceState, useConnection, useEvents, useLosses, useSimClock, useSimControl, useSimState, useUpcoming, type Resource } from "@/api/hooks";
 import { Card, CardHeader } from "@/components/Card";
 import { Chip } from "@/components/Chip";
+import { CleanLineArt } from "@/components/CleanLineArt";
 import { EventRow } from "@/components/EventRow";
 import { OeeRing } from "@/components/OeeRing";
+import { OeeSparkline } from "@/components/OeeSparkline";
 import { StateView } from "@/components/Panel";
+import { PieceGrid } from "@/components/PieceGrid";
+import { ShiftStrip } from "@/components/ShiftStrip";
 import { SimSettings } from "@/components/SimSettings";
 import { AskAiButton } from "@/components/ask/AskAiButton";
 import { StatusHero } from "@/components/StatusHero";
 import { dayLabel, greeting, hhmm, parseTime, pcs } from "@/lib/format";
-import { CalendarClock, ChevronDown } from "lucide-react";
+import { CalendarClock, ChevronDown, TrendingUp } from "lucide-react";
 import { roleInfo, useRole } from "@/lib/role";
 import { RolePicker } from "@/components/RolePicker";
 import { toneBg, toneText, type Tone } from "@/lib/tone";
+import { useIsDesktop } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
 
 /** 01 Now — what is happening on the line and when. */
@@ -39,7 +44,7 @@ export default function NowPage() {
         </Card>
       )}
       {state ? (
-        <Kpis state={state} />
+        <Kpis state={state} losses={losses.data} onOpen={open} />
       ) : (
         <div className="grid grid-cols-2 gap-card-gap">
           {[0, 1].map((i) => (
@@ -128,23 +133,79 @@ function Hero({
   );
 }
 
-function Kpis({ state }: { state: SimState }) {
-  const { shift } = state;
+function Kpis({ state, losses, onOpen }: { state: SimState; losses?: Loss[]; onOpen: (code: string) => void }) {
+  const { shift, hours } = state;
+  const desktop = useIsDesktop();
+  const worked = hours.filter((h) => h.plan_min > 0); // the first minutes of a shift have no plan yet
   const lost = Math.max(0, shift.plan_min - shift.ok); // ideal (1 pc / planned min) − good
   return (
-    <div className="grid grid-cols-2 gap-card-gap">
-      <Card>
+    <>
+      <Card className="flex items-center justify-between gap-4">
         <OeeRing value={shift.oee} target={shift.target} />
+        {worked.length > 0 && (
+          <div className="min-w-0 flex-1 text-right">
+            <span className="overline-label">By hour</span>
+            <OeeSparkline className="ml-auto mt-1 h-12 w-full max-w-[200px]" values={worked.map((h) => h.oee)} target={shift.target} />
+          </div>
+        )}
       </Card>
-      <Card className="flex flex-col justify-center">
-        <span className="overline-label">Lost today</span>
-        <span className="mt-0.5 flex items-baseline gap-1">
-          <span className="num text-num-l text-text-primary">{pcs(Math.round(lost))}</span>
-          <span className="text-body text-text-secondary">pcs</span>
-        </span>
-        <span className="text-caption text-text-secondary">of {pcs(Math.round(shift.plan_min))} possible</span>
-      </Card>
-    </div>
+      <div className="grid grid-cols-2 gap-card-gap">
+        <Card className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <span className="overline-label">Lost today</span>
+            <span className="text-caption text-text-secondary">of {pcs(Math.round(shift.plan_min))}</span>
+          </div>
+          <span className="flex items-baseline gap-1">
+            <span className="num text-num-l text-text-primary">{pcs(Math.round(lost))}</span>
+            <span className="text-body text-text-secondary">pcs</span>
+          </span>
+          <PieceGrid
+            total={shift.plan_min}
+            stop={shift.downtime_min}
+            speed={Math.max(0, shift.run_min - shift.produced)}
+            defect={shift.nok}
+            columns={desktop ? 32 : 16}
+          />
+        </Card>
+        <IfFixedFirst losses={losses} onOpen={onOpen} />
+      </div>
+    </>
+  );
+}
+
+/** The OEE that comes back if the biggest stop so far is fixed first. */
+function IfFixedFirst({ losses, onOpen }: { losses?: Loss[]; onOpen: (code: string) => void }) {
+  const top = useMemo(
+    () => (losses ?? []).filter((l) => l.type === "downtime").sort((a, b) => b.loss_pcs - a.loss_pcs)[0],
+    [losses],
+  );
+  return (
+    <Card padded={false} className="bg-status-fix-bg">
+      <button
+        type="button"
+        disabled={!top}
+        onClick={() => top && onOpen(top.code)}
+        className="flex h-full w-full flex-col justify-between gap-3 rounded-card p-card-pad text-left"
+      >
+        <span className="overline-label text-text-secondary">If fixed first</span>
+        {top ? (
+          <>
+            <span>
+              <span className="flex items-center gap-2 text-status-fix">
+                <TrendingUp className="h-6 w-6 shrink-0" aria-hidden />
+                <span className="num text-num-l">+{top.loss_pp.toFixed(2)}</span>
+              </span>
+              <span className="mt-0.5 block text-caption text-text-secondary">pp OEE · {top.code}</span>
+            </span>
+            <Chip tone="fix" variant="surface" dot={false} className="w-fit">
+              {pcs(Math.round(top.loss_pcs))} pcs back
+            </Chip>
+          </>
+        ) : (
+          <span className="text-caption text-text-secondary">No stops so far.</span>
+        )}
+      </button>
+    </Card>
   );
 }
 
@@ -173,8 +234,10 @@ function ErrorsToday({
         <StateView
           state={waiting ? "loading" : resourceState(events)}
           emptyText="No errors so far today — the line runs clean."
+          emptyArt={<CleanLineArt className="h-16 w-28" />}
           errorText={events.error}
         >
+          <ShiftStrip className="mb-1 mt-2" events={sorted} now={now} />
           {sorted.map((e) => (
             <EventRow
               key={`${e.time}-${e.code}`}

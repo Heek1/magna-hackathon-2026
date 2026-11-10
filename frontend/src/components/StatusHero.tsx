@@ -1,5 +1,6 @@
 import { ChevronRight, Wrench } from "lucide-react";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
+import { Conveyor } from "@/components/Conveyor";
 import { Elapsed } from "@/components/Countdown";
 import { cn } from "@/lib/utils";
 import { hhmm, parseTime, pct } from "@/lib/format";
@@ -86,6 +87,7 @@ export function StatusHero(props: StatusHeroProps) {
       </div>
 
       {stopped && props.fix && <FixRow fix={props.fix} onClick={props.onFixClick} />}
+      <Conveyor stopped={stopped} className="mt-4" />
     </section>
   );
 }

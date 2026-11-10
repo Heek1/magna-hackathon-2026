@@ -14,6 +14,8 @@ export interface PanelProps {
   /** Every data block handles all four states. Default "ready". */
   state?: PanelState;
   emptyText?: string;
+  /** Illustration for the empty state, instead of the default icon. */
+  emptyArt?: ReactNode;
   errorText?: string | null;
   onRetry?: () => void;
   className?: string;
@@ -59,9 +61,10 @@ export function StateView({
   errorText,
   onRetry,
   children,
-}: Pick<PanelProps, "state" | "emptyText" | "errorText" | "onRetry" | "children">) {
+  emptyArt,
+}: Pick<PanelProps, "state" | "emptyText" | "emptyArt" | "errorText" | "onRetry" | "children">) {
   if (state === "loading") return <PanelSkeleton />;
-  if (state === "empty") return <PanelMessage icon={<Inbox className="h-5 w-5" />} text={emptyText} />;
+  if (state === "empty") return <PanelMessage icon={emptyArt ?? <Inbox className="h-5 w-5" />} text={emptyText} />;
   if (state === "error")
     return (
       <PanelMessage
