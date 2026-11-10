@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Confidence, LineEvent, Loss, SimState, UpcomingStop } from "@/types/api";
 import { resourceState, useConnection, useEvents, useLosses, useSimClock, useSimState, useUpcoming, type Resource } from "@/api/hooks";
@@ -10,7 +10,9 @@ import { StateView } from "@/components/Panel";
 import { SimSettings } from "@/components/SimSettings";
 import { StatusHero } from "@/components/StatusHero";
 import { dayLabel, greeting, hhmm, parseTime, pcs } from "@/lib/format";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, ChevronDown } from "lucide-react";
+import { roleInfo, useRole } from "@/lib/role";
+import { RolePicker } from "@/components/RolePicker";
 import { toneBg, toneText, type Tone } from "@/lib/tone";
 import { cn } from "@/lib/utils";
 
@@ -63,12 +65,13 @@ function Header({ date }: { date: Date | null }) {
       <Chip variant="surface">Connecting</Chip>
     );
   return (
-    <header className="flex items-end justify-between gap-3 pt-2">
+    <header className="flex items-start justify-between gap-3 pt-2">
       <div className="min-w-0">
         <p className="overline-label">Line L01{date && ` · ${dayLabel(date)}`}</p>
         <h1 className="mt-1 text-display text-text-primary">{date ? greeting(date) : "Hello"}</h1>
+        <RoleButton />
       </div>
-      <div className="flex items-center gap-2 pb-1">
+      <div className="mt-[22px] flex items-center gap-2">
         {chip}
         <SimSettings className="lg:hidden" />
       </div>
@@ -240,5 +243,39 @@ function UpcomingRow({ item, countdown, onClick }: { item: UpcomingStop; countdo
       </span>
       <span className={cn("num whitespace-nowrap text-num-m", toneText[tone])}>~{Math.round(item.risk_pcs)} pcs</span>
     </button>
+  );
+}
+
+/** "Maintenance ▾" under the greeting: who you are, tap to change. */
+function RoleButton() {
+  const [role, setRole] = useRole();
+  const [open, setOpen] = useState(false);
+  const info = roleInfo(role);
+  if (!info) return null;
+  const Icon = info.icon;
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-chip bg-bg-card pl-2.5 pr-2 text-caption font-medium text-text-primary shadow-card transition active:scale-95"
+        aria-label={`Viewing as ${info.role}. Change role`}
+      >
+        <Icon className="h-4 w-4" aria-hidden />
+        {info.role}
+        <ChevronDown className="h-4 w-4 text-text-tertiary" aria-hidden />
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-bg-canvas">
+          <RolePicker
+            current={role}
+            onClose={() => setOpen(false)}
+            onPick={(r) => {
+              setRole(r);
+              setOpen(false);
+            }}
+          />
+        </div>
+      )}
+    </>
   );
 }
