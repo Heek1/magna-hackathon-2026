@@ -1,178 +1,183 @@
 # AI OEE Improvement Engine — Magna Hackathon 2026
-## Pitch Deck: 5 хвилин, 7 слайдів із текстом доповідача
+## Pitch Deck: 5 Minutes, 7 Slides with Speaker Notes
 
 ---
 
-### Слайд 1. Проблема: Чому 88 % OEE приховують мільйонні втрати?
-**Заголовок**: Від реактивного гасіння пожеж — до проактивного запобігання втратам OEE в реальному часі.
+### Slide 1. The Problem: Why 88% OEE Hides Millions in Lost Output
+**Headline**: Moving from reactive firefighting to proactive, real-time OEE loss prevention.
 
-* **Контекст**:
-  * Лінія складання електроприводів Magna (10 станцій, цикл 60 с, 1 зміна 06:00–14:00).
-  * На папері місячний OEE = 88,0 % (перевищує корпоративну ціль 85,0 %).
-  * **Реальність**: за місяць лінія втратила **1 108 електроприводів**!
-* **Критичні виклики операційної команди**:
-  1. **Невидимі втрати**: мікрозупинки, розгойдування на початку зміни та рестарти після перерв не фіксуються в стандартних журналах простоїв.
-  2. **Реактивність**: про системний брак або збій станції дізнаються постфактум, коли зміна вже зірвана.
-  3. **Розрив між аналізом і дією**: інженери витрачають години на Excel замість впровадження стандартизованих контрзаходів.
-* **Вимога хакатону Magna**:
-  > *Кожна виробнича втрата повинна бути видимою і вирішуваною в реальному часі.*
+* **Context**:
+  * Magna electric drive assembly line (10 stations, 60 s ideal cycle, single shift 06:00–14:00).
+  * On paper, monthly OEE is **88.0%**, beating the corporate target of **85.0%**.
+  * **The reality**: across 21 shifts, the line lost **1,108 electric drives**!
+* **Critical Operational Challenges**:
+  1. **Invisible losses**: Equipment microstops, sluggish shift startups, and post-break ramp-ups are never logged in standard downtime sheets.
+  2. **Reactive response**: Quality defects and recurring breakdowns are discovered after the shift is already compromised.
+  3. **Analysis-action disconnect**: Engineers spend hours in Excel spreadsheets instead of executing standardized countermeasures on the line.
+* **Magna Hackathon Mandate**:
+  > *Every manufacturing loss must be visible and actionable in real time.*
 
-> 🎙️ **Текст доповідача (00:00 – 00:45)**:
-> «Доброго дня, шановні судді та колеги з Magna! Подивіться на цей показник: 88 % OEE. Здається, що лінія працює відмінно, адже ціль 85 % формально перевиконано. Але в автомобільній індустрії диявол криється в деталях: за цими трьома відсотками запасу ховаються понад 1 100 невироблених електроприводів за один лише місяць на одній зміні.
-> Сьогодні майстри та технологи на лінії бачать збої вже тоді, коли зміна закінчилася або станція стала на пів години. Наша мета — перетворити OEE з мертвого звіту за вчора на живий навігатор, де кожна втрачена секунда миттєво підсвічується і супроводжується чітким контрзаходом до того, як вона вдарить по плановій продуктивності.»
+> 🎙️ **Speaker Notes (00:00 – 00:45)**:
+> "Good morning, judges and Magna colleagues. Take a look at this headline number: 88% OEE. At first glance, the line seems to perform well — after all, the 85% target is met. But in automotive manufacturing, the devil is in the details. Behind that three percent buffer lie more than 1,100 unbuilt electric drives in just one month on a single shift.
+> Today, plant supervisors and process engineers discover root causes only after the shift is over, or after a station has stood idle for thirty minutes. Our mission is to turn OEE from a backward-looking report into a live operating system: every lost second is instantly surfaced, explained, and paired with a proven countermeasure before it damages shift throughput."
 
 ---
 
-### Слайд 2. Анатомія втрат: Куди зникають 1 108 електроприводів?
-**Заголовок**: 8 251 вироблено, 1 108 втрачено — структура виробничого дефіциту.
+### Slide 2. Anatomy of Losses: Where Did 1,108 Electric Drives Go?
+**Headline**: 8,251 produced, 1,108 lost — the true breakdown of line deficit.
 
-* **Базові показники місяця (21 зміна, 9 240 планових хвилин)**:
-  * Планова потужність: **9 359 шт** | Фактичний випуск: **8 251 шт** (8 132 OK, 119 NOK).
-  * Загальні втрати продуктивності: **1 108 шт**.
-* **Розподіл втрат OEE за факторами**:
-  1. ⚡ **Втрати швидкості (Performance Loss) — 52 % (578 шт)**:
-     * Головний прихований пожирач ефективності!
-     * 19 621 с — сповільнення циклу ліній;
-     * 11 999 с — мікрозупинки станцій;
-     * 3 120 с — повторні випробування (retests).
-  2. 🛑 **Втрати доступності (Downtime Loss) — 37 % (410 шт / 410 хв)**:
-     * 33 зафіксовані аварійні зупинки на 10 станціях.
-  3. ⚠️ **Втрати якості (Quality / Scrap) — 11 % (119 шт)**:
-     * 112 зареєстрованих дефектів (витоки, недопресовка, момент затяжки).
+* **Monthly Baseline (21 shifts, 9,240 planned minutes)**:
+  * Planned potential: **9,359 pcs** | Actual production: **8,251 pcs** (8,132 OK, 119 NOK).
+  * Total lost capacity: **1,108 pcs**.
+* **Three Loss Pillars (Contract Formulas)**:
+  1. ⚡ **Speed Loss (Performance) — 52% (578 pcs lost)**:
+     * The largest hidden efficiency killer.
+     * 19,621 s — line cycle slowdowns;
+     * 11,999 s — equipment microstops;
+     * 3,120 s — retests.
+  2. 🛑 **Downtime Loss (Availability) — 37% (410 pcs / 410 min lost)**:
+     * 33 logged breakdown events across 10 stations.
+  3. ⚠️ **Quality Loss (Scrap / NOK) — 11% (119 pcs lost)**:
+     * 112 defect entries (fluid leakage, press-fit stroke, torque joint).
 
-| Фактор OEE | Фактичний рівень | Ціль Magna | Втрати в штуках | Частка у втратах |
+| OEE Factor | Actual | Magna Target | Loss in Pieces | Share of Total Loss |
 | :--- | :---: | :---: | :---: | :---: |
-| **Performance (Швидкість)** | 93,4 % | 95,0 % | **578 шт** | **52,2 %** |
-| **Availability (Доступність)** | 95,6 % | 96,0 % | **410 шт** | **37,0 %** |
-| **Quality (Якість)** | 98,6 % | 99,0 % | **120 шт** | **10,8 %** |
-| **Загальний OEE** | **88,0 %** | **85,0 %** | **1 108 шт** | **100 %** |
+| **Performance (Speed)** | 93.4% | 95.0% | **578 pcs** | **52.2%** |
+| **Availability (Downtime)** | 95.6% | 96.0% | **410 pcs** | **37.0%** |
+| **Quality (Scrap)** | 98.6% | 99.0% | **119 pcs** | **10.8%** |
+| **OEE (Overall)** | **88.0%** | **85.0%** | **1,108 pcs** | **100.0%** |
 
-> 🎙️ **Текст доповідача (00:45 – 01:30)**:
-> «Коли ми завантажили повний масив виробничих даних лінії складання електроприводу, аналіз показав несподівану картину. Більшість людей вважає головним ворогом OEE простої. Але на графіку видно: аварійні простої складають лише 37 % втрат.
-> Більше половини всіх втрат — 52 % або майже 600 готових приводів — це втрати швидкості: дрібні затримки подачі деталей, мікрозупинки конвеєра та повторні тести камер. Ще 11 % — це остаточний брак.
-> Тобто класичний моніторинг простоїв ігнорує понад 60 % реального потенціалу зростання! Наш Engine аналізує всі три складові одночасно і розкладає втрати до рівня секунд і одиниць продукції.»
+*Core Rule: Metrics are calculated strictly from raw sums, never by averaging percentages.*
 
----
-
-### Слайд 3. Що знайшов AI Engine: 3 системні аномалії виробництва
-**Заголовок**: Приховані хронічні закономірності, виявлені статистичним модулем движка.
-
-* 🔍 **Знахідка 1: «Прокляття середи» (Код `ST-038`)**:
-  * За місяць 17 змін виконали ціль 85 %, а **рівно 4 зміни провалили план** (OEE 81,6 %, 82,3 %, 84,1 %, 78,2 %).
-  * **Усі 4 зміни — це середи (4, 11, 18, 25 листопада)!**
-  * Причина: на станції 3 щосереди рівно о **09:08** світловий модуль камери технічного зору аварійно перериває роботу рівно на **25 хвилин** (втрата 100 шт).
-* 🔍 **Знахідка 2: «Четверговий витік» (Код `ST-047`)**:
-  * Щочетверга (5, 12, 19, 26 листопада) рівно о **08:08** на станції тестування герметичності (станція 9) зношується ущільнення гнізда — зупинка на **15 хвилин** (втрата 60 шт).
-* 🔍 **Знахідка 3: Хронічні повільні години (Hour 1 та Hour 5)**:
-  * Середня швидкість лінії: ~94,5 %.
-  * **Година 1 (06:00–07:00)**: Performance падає до **88,5 %** (втрата ~6–8 шт щодня на розгойдування, пошук деталей та старт лінії).
-  * **Година 5 (10:00–11:00)**: Performance падає до **86,9 %** (важкий рестарт після 30-хвилинної обідньої перерви; втрата ~8–10 шт щодня).
-
-> 🎙️ **Текст доповідача (01:30 – 02:30)**:
-> «А тепер найцікавіше: чому ці втрати повторюються з тижня в тиждень?
-> Наш аналітичний модуль виявив те, що людина в щоденній рутині просто не помічає:
-> По-перше, усі 4 зміни, де OEE впав нижче цілі — це строго середи! Щосереди о 9:08 ранку відмовляє світловий модуль камери на 25 хвилин. Це не випадковість — це циклічний збій охолодження або забруднення, який виникає рівно через 48 годин безперервної роботи.
-> По-друге, щочетверга о 8:08 на станції тесту витоків зношується тестове гніздо на 15 хвилин.
-> По-третє, феномен першої та п'ятої годин. Перша година — оператори тільки починають розгін, деталі не підготовлені. П'ята година — рестарт після обіду, лінія пуста. Тільки ці два просідання крадуть у Magna по 15 деталей щозміни!»
+> 🎙️ **Speaker Notes (00:45 – 01:30)**:
+> "Where did those 1,108 electric drives vanish? Over half of all losses — 52% — were speed losses: silent microstops and cycle slowdowns totaling 578 pieces. Downtime accounts for 37%, or 410 lost pieces across 33 logged breakdowns. Quality scrap accounts for the remaining 11%, or 119 defective parts.
+> Note that we strictly compute availability, performance, and quality from raw sums rather than averaging percentages. When we group downtime by station and error code instead of unreliable categories, systematic operational patterns immediately stand out."
 
 ---
 
-### Слайд 4. Архітектура та інженерні стандарти Magna
-**Заголовок**: Від детекції — до дії: повний ланцюг за методологією World Class Manufacturing.
+### Slide 3. What the Engine Uncovered: Systematic Patterns Hiding in Plain Sight
+**Headline**: Every target miss was predictable — recurring stops and sluggish shift hours.
 
-```mermaid
-flowchart LR
-    A["Потік даних з лінії<br/>(PLC / Excel / Симулятор)"] --> B["OEE Engine<br/>(A × P × Q без усереднення)"]
-    B --> C["AI Root-Cause Detectors<br/>(Патерни, Аномалії, Тренди)"]
-    C --> D["База контрзаходів Magna<br/>(82 коди Ciselnik_chyb + 4 спецключі)"]
-    D --> E["Predictive Alerting & Action Board<br/>(Хто? Що? Який ефект у штуках?)"]
-```
+* **Finding 1: Wednesday Camera Failure (`ST-038`)**:
+  * All 4 shifts that missed the 85% target were Wednesdays (Nov 4, 11, 18, 25).
+  * Exact cause: Station `Kamera`, error `ST-038` (camera light module interrupted operation).
+  * Recurring weekly pattern: exactly at **09:08**, lasting **25 minutes**, costing **100 lost pieces** over the month.
+* **Finding 2: Thursday Leak Test Failure (`ST-047`)**:
+  * Every Thursday (Nov 5, 12, 19, 26) at **08:08**, Station `Leak test` suffers error `ST-047` (air leakage in test nest).
+  * Exactly **15 minutes** downtime each week = **60 lost pieces**.
+* **Finding 3: Sluggish Shift Kickoff & Post-Break Ramp-up (Hours 1 and 5)**:
+  * **Hour 1 (06:00–07:00)**: Performance drops to **88.5%** vs the 94.6% shift median on all 21 shifts (microstops and slow line startup).
+  * **Hour 5 (10:00–11:00)**: Performance drops to **86.9%** immediately after the 30-minute break.
+* **Finding 4: Top Scrap Pareto (`Q-031`, `Q-020`, `Q-026`)**:
+  * 3 defect codes generate **79% of all scrap**: fluid circuit leaks (`Q-031`), press-fit stroke shorts (`Q-020`), and screwdriver torque deficits (`Q-026`).
 
-* **Контракт і формули**:
-  * Жодного штучного усереднення відсотків: розрахунок Availability, Performance, Quality строго із накопичувальних сум часу і штук.
-* **База знань контрзаходів (`countermeasures.json`)**:
-  * 86 валідованих записів (усі 82 коди дефектів + ключі `slow_hour_1`, `slow_hour_5`, `microstop`, `retest`).
-  * Для кожної втрати закріплено:
-    * **Конкретну дію** в одне речення.
-    * **Бережливий метод (Method)**: *Autonomous Maintenance*, *Standard Work*, *Poka-yoke*, *SPC*, *SMED*, *Calibration*, *5-Why*, *Preventive Maintenance*.
-    * **Відповідальну роль (Owner)**: *Maintenance*, *Quality*, *Logistics*, *Team leader*, *Process engineer*.
-
-> 🎙️ **Текст доповідача (02:30 – 03:15)**:
-> «Як влаштоване наше рішення? Ми не створювали абстрактний дашборд. Архітектура системи побудована на реальних виробничих стандартах Magna.
-> По-перше, ядро симулятора транслює стан лінії щосекунди, розраховуючи OEE чесно — без усереднення відсотків.
-> По-друге, ми оцифрували довідник із 82 кодів збоїв та прив'язали до кожного з них перевірені інструменти лін-виробництва: для камери — регламент перевірки освітлення в автономному обслуговуванні; для пресування — моніторинг сили й позиції з SPC-тригером; для шурупокрутів — обов'язкове калібрування на початку зміни; для 5-ї години — випереджальна подача матеріалів до завершення перерви.
-> Завдяки цьому система видає не просто суху діаграму, а готове технічне завдання конкретному виконавцю.»
+> 🎙️ **Speaker Notes (01:30 – 02:15)**:
+> "Our analytics engine detected four clear operational anomalies.
+> First: all four shifts that failed the 85% target occurred on Wednesdays. Why? Every single Wednesday at exactly 09:08, the inspection camera lighting failed for 25 minutes.
+> Second: every Thursday at 08:08, the leak tester nest seal failed for 15 minutes.
+> Third: hours 1 and 5 lag behind every single day. Shift kickoff in hour 1 drops performance to 88.5%, and restarting after lunch in hour 5 drops it to 86.9%.
+> And in quality, just three defect codes cause 79% of all scrap. None of this is random bad luck — these are recurring, solvable engineering problems."
 
 ---
 
-### Слайд 5. Демонстрація системи в реальному часі
-**Заголовок**: Живий інтерфейс диспетчерської (Live), глибока аналітика (Analysis) та Канбан дій (Actions).
+### Slide 4. The Solution Architecture: Real-Time Intelligence & Proven Countermeasures
+**Headline**: A full-stack AI engine connecting real-time telemetry to Lean shopfloor execution.
 
-* **1. Екран Live (Пульт диспетчера заводу)**:
-  * Миттєві KPI зміни (A: 90,7 %, P: 89,0 %, Q: 98,7 %, OEE: 79,6 %).
-  * **Предиктивне сповіщення**: 25 листопада о 08:30 система видає жовтий банер: *«ST-038 очікується о 09:08 (зворотний відлік 38 хв) — потенційна втрата 25 шт»*.
-  * О 09:08 — миттєвий пульсуючий банер зупинки камери з кнопкою *«Create Action»*.
-* **2. Екран Analysis (Аналітичний центр)**:
-  * Графік денного OEE із чіткою цільовою лінією 85 % і підсвіткою небезпечних днів.
-  * Інтерактивна теплова карта «День × Година» з перемикачем метрик (OEE / Швидкість / Простої).
-  * Діаграма Парето з лінією 80/20 для фокусування на 2 ключових причинах.
-* **3. Екран Actions (Канбан-дошка контрзаходів)**:
-  * Три колонки: `Open` → `In Progress` → `Done` зі зміною статусу через Drag-and-Drop або клік.
-  * На кожній картці: виконавець, пов'язаний інсайт та очікуваний виграш у штуках (`+25 pcs`, `+15 pcs`).
-* **4. What-If симулятор**:
-  * Моделювання: «Що буде, якщо прибрати ST-038?» → розрахунок повернення OEE з 78,2 % до 83,9 % (+25 шт) без перезапуску лінії.
+* **Telemetry & Streaming Layer (FastAPI, SQLite, SSE)**:
+  * High-speed simulator plays line data forward with adjustable acceleration (`/api/sim/control`).
+  * Server-Sent Events (`/api/stream`) push instant state updates with zero polling delay.
+  * Real-time endpoints enforce strict time travel: supervisors only see data up to current `sim_time`.
+* **Automated Root-Cause Knowledge Base (82 Error Codes + 4 System Patterns)**:
+  * Every single error code in `Ciselnik_chyb` is mapped to `{action, method, owner_role}`:
+    * `ST-038` (Camera light) → Clean optics and verify lighting intensity during **Autonomous maintenance** (Owner: **Maintenance**).
+    * `ST-047` (Leak test nest) → Scheduled seal replacement under **Preventive maintenance** (Owner: **Maintenance**).
+    * `slow_hour_1` & `slow_hour_5` → Buffer staging & 5-minute pre-break line readiness under **Standard work** (Owner: **Team leader**).
+    * `Q-020` (Press-fit) → Dynamic force-distance envelope with **SPC** alarming (Owner: **Process engineer**).
+    * `Q-026` (Torque joints) → Shift-start electric screwdriver **Calibration** (Owner: **Maintenance**).
+* **Predictive & What-If Simulation Engine**:
+  * Predicts recurring stops before they hit and displays a live countdown.
+  * Instant What-If modeling (`POST /api/whatif`): recalculates monthly OEE and piece gains if selected failure modes are eliminated.
 
-> 🎙️ **Текст доповідача (03:15 – 04:00)**:
-> «Перейдемо до живого сценарію на екрані.
-> Уявіть ранок 25 листопада, 08:30. На Live-панелі оператор бачить попередження: за історичним патерном через 38 хвилин очікується відмова освітлення камери. У техніка є пів години, щоб перевірити модуль у буферне вікно.
-> Якщо зупинка сталася — з'являється активний червоний банер. В один клік оператор натискає "Створити дію" — вона миттєво з'являється на дошці Actions у зоні відповідальності служби Maintenance.
-> Далі керівник заходить у What-If калькулятор: обирає зняття причини ST-038 і бачить точний математичний приріст OEE на +1,7 відсоткових пункти. А на сторінці Analysis інтерактивна теплова карта та Парето дозволяють за 10 секунд виявити інші вузькі місця.»
-
----
-
-### Слайд 6. Виробничий та економічний ефект
-**Заголовок**: +3,5 процентних пункти OEE та +320 електроприводів щомісяця без інвестицій у залізо.
-
-* **Пакет контрзаходів з підтвердженим ефектом**:
-  1. **Усунення двох хронічних зупинок (`ST-038` + `ST-047`)**:
-     * Регламент автономного обслуговування світлового модуля + щотижнева заміна ущільнень тестера.
-     * **Ефект: +1,7 п.п. до місячного OEE (+160 шт готової продукції)**.
-  2. **Вирівнювання старту зміни та рестарту після перерви (години 1 і 5)**:
-     * Стандарт готовності лінії та випереджальна доставка деталей логістами за 5 хв до кінця паузи.
-     * **Ефект: +1,1 п.п. до місячного OEE (+103 шт готової продукції)**.
-  3. **Скорочення браку пресування та шурупокрутів (`Q-020`, `Q-026`)**:
-     * SPC-контроль зусилля запресовки + калібрування моментів на старті зміни.
-     * **Ефект: +0,7 п.п. до місячного OEE (+60 шт збережених деталей)**.
-* **Підсумковий бізнес-результат**:
-  * Зростання OEE: **з 88,0 % до 91,5 %** (+3,5 процентних пункти).
-  * Додатковий випуск: **+323 електроприводи щомісяця** на одній лінії.
-  * Термін окупності: **0 днів** (використання наявного персоналу та впровадження стандартизованої роботи).
-
-> 🎙️ **Текст доповідача (04:00 – 04:35)**:
-> «Перейдемо до найголовнішого для Magna — бізнес-ефекту.
-> Наші розрахунки базуються виключно на математиці контрактних формул хакатону:
-> Усунення всього двох знайдених хронічних зупинок (камери та тестера витоків) дає прямий приріст місячного OEE на 1,7 процентних пункти. Це 160 додаткових електроприводів.
-> Організація чіткого запуску 1-ї та 5-ї годин повертає ще 1,1 процентних пункти або понад 100 приводів.
-> Разом з оптимізацією моментів затяжки та пресування ми виводимо лінію на рівень **91,5 % OEE** замість 88 %.
-> Це понад **320 високомаржинальних систем електроприводу щомісяця** з нульовими витратами на нове обладнання!»
+> 🎙️ **Speaker Notes (02:15 – 03:00)**:
+> "To solve this, we built a real-time AI OEE Improvement Engine. The backend streams live line states over Server-Sent Events with sub-second latency.
+> What makes our engine unique is its manufacturing DNA: we mapped all 82 error codes and line bottlenecks to concrete Lean countermeasures. When the camera light fails, the system does not just print an alert — it assigns an Autonomous Maintenance check of light intensity to Maintenance. When press-fitting drifts, it triggers an SPC alarm for the Process Engineer.
+> And with our What-If simulator, plant managers can instantly test countermeasure impacts on monthly OEE before spending a single dollar."
 
 ---
 
-### Слайд 7. План розгортання та наступні кроки
-**Заголовок**: Масштабування AI OEE Improvement Engine на заводах Magna.
+### Slide 5. Live Product Walkthrough: Built for the Shopfloor Phone
+**Headline**: Mobile-first design for operators and team leaders — every error paired with its fix.
 
-* **Етап 1 (Місяць 1): Пілотне підключення в цеху**:
-  * Пряма інтеграція сервера з промисловими контролерами (Siemens / Beckhoff PLC через OPC-UA та MQTT) замість Excel/симулятора.
-  * Виведення дашборду Live на 65-дюймові андроїд-монітори безпосередньо над лінією складання.
-* **Етап 2 (Місяці 2–3): Інтелектуальний асистент оператора**:
-  * Підключення LLM-модуля (Google Gemini API) до бази знань для голосових та текстових підказок майстрам: *«Чому впала швидкість на станції 4?»*.
-  * Автоматичне формування змінних звітів через ендпоінт `/api/report`.
-* **Етап 3 (Місяці 4–6): Масштабування**:
-  * Тиражування на всі 10 складальних ліній заводу та інтеграція з корпоративною MES/ERP системою Magna.
+* **Designed for the Shopfloor (390 × 844 Mobile-First, PWA)**:
+  * Installs directly to any smartphone home screen as a standalone Progressive Web App (PWA).
+  * Clean responsive design: single-column workflow on phones, expanding to multi-column dashboards on overhead monitors.
+* **Step-by-Step Incident Lifecycle Walkthrough**:
+  1. **01 Now Screen (`/`)**:
+     * Live shift OEE ring gauge vs 85% target and pieces lost today.
+     * When downtime strikes, a dark **StatusHero** card turns red: live elapsed timer, error code `ST-038`, and countermeasure preview.
+     * Chronological "Errors today" feed from `/api/events`.
+  2. **02 Top Errors Screen (`/analysis`)**:
+     * Segmented tabs for **Stops**, **Defects**, and **Speed losses** ranked by pieces lost.
+     * **#1 "Fix First" Hero Card**: highlights `ST-038`, recurring pattern chip (*Every Wed 09:08*), loss impact (87 pcs), green solution block, and one-tap **Assign** button.
+     * **Next to Fix List**: relative progress bars showing loss scale for immediate triage.
+  3. **03 Error Detail Screen (`/analysis` subview)**:
+     * Three KPI cards: frequency, downtime minutes, and lost pieces.
+     * **PatternGrid (Mon–Fri × 06–13h)**: visualizes when the error occurs and alerts: *Next expected: Wed 2 Dec, 09:08*.
+     * Actionable numbered steps for technicians.
+     * Sticky bottom bar: **Create Action for Maintenance**.
+  4. **Fixes Screen (`/actions`)**:
+     * Mobile segmented view: **Open**, **In Progress**, **Done**.
+     * Desktop 3-column Kanban board: tracks assignees, linked error codes, and verified piece gains.
 
-> 🎙️ **Текст доповідача (04:35 – 05:00)**:
-> «Що далі? Наше рішення готове до інтеграції.
-> Завдяки контейнеризації в Docker та модульній архітектурі ми можемо підключити живий потік OPC-UA з контролерів станцій уже наступного тижня.
-> Далі — підключення розумного чат-асистента з LLM, який на запит майстра пояснить причину збою та назве інструмент SMED чи Poka-yoke для його ліквідації.
-> AI OEE Improvement Engine — це робочий інструмент цифрової трансформації Magna: прозорий, швидкий і орієнтований на чистий прибуток.
-> Дякуємо за увагу! Готові відповісти на ваші запитання.»
+> 🎙️ **Speaker Notes (03:00 – 04:00)**:
+> "Let us walk through the user experience on a smartphone. The interface is mobile-first, installs like an app on any operator's phone, and scales cleanly to plant monitors.
+> On the Now screen, operators immediately see the active line status. When Station Kamera trips on error ST-038, the hero card turns red, starts a live downtime timer, and surfaces the fix.
+> Swiping to Top Errors reveals our Fix First card: ST-038 leads the shift with 87 lost pieces. Tapping into Error Detail displays our PatternGrid: the supervisor sees that this stop strikes every Wednesday at 09:08, with the next occurrence countdown already ticking.
+> With a single tap on the sticky button, the supervisor assigns a standardized action to Maintenance. The task moves straight to the Action Board, closing the loop from incident detection to resolution."
+
+---
+
+### Slide 6. Business Impact & ROI: Turning Data into Delivered Output
+**Headline**: +3.5 percentage points in OEE = 323 additional electric drives per line every month.
+
+* **Validated Impact (Based on Contract Formulas)**:
+  1. **Eliminate Two Chronic Weekly Stops (`ST-038` + `ST-047`)**:
+     * Camera cleaning in autonomous maintenance + preventive leak test nest seal replacement.
+     * **Direct Gain: +1.7 percentage points OEE (+160 finished electric drives / month)**.
+  2. **Level Shift Kickoff & Post-Break Ramp-up (Hours 1 and 5)**:
+     * Pre-shift autonomous maintenance staging + 5-minute pre-break parts replenishment by logistics.
+     * **Direct Gain: +1.1 percentage points OEE (+103 finished electric drives / month)**.
+  3. **Mitigate Top Scrap Causes (`Q-020` + `Q-026`)**:
+     * Press force-displacement SPC monitoring + start-of-shift screwdriver torque calibration.
+     * **Direct Gain: +0.7 percentage points OEE (+60 saved parts / month)**.
+* **Total Operational Value**:
+  * OEE growth: **from 88.0% to 91.5%** (+3.5 percentage points).
+  * Net production gain: **+323 electric drives per month** on a single assembly line.
+  * Payback period: **Immediate** (zero capital expenditure — operational standardization and existing staff).
+
+> 🎙️ **Speaker Notes (04:00 – 04:35)**:
+> "Let us examine the business return for Magna. Every number here is derived strictly from our validated mathematical model.
+> Eliminating just two chronic weekly stops — the camera lighting and leak test nest — delivers a 1.7 percentage point increase in monthly OEE, recovering 160 electric drives.
+> Leveling the startup efficiency of hours 1 and 5 adds another 1.1 percentage points, or 103 drives.
+> Tackling our top press-fit and torque defects saves 60 more units.
+> In total, this raises line OEE from 88.0% to 91.5%. That is 323 high-margin electric drive units recovered every month on a single line, with zero capital expenditure on new machinery."
+
+---
+
+### Slide 7. Implementation Roadmap & Next Steps
+**Headline**: Scaling the AI OEE Improvement Engine across Magna manufacturing plants.
+
+* **Phase 1 (Month 1): Factory Floor Pilot**:
+  * Connect backend directly to industrial PLC controllers (Siemens / Beckhoff via OPC-UA and MQTT) replacing the simulator.
+  * Deploy the PWA app to team leader tablets and 65-inch overhead station displays.
+* **Phase 2 (Months 2–3): AI Operator Copilot & Automated Reporting**:
+  * Integrate Google Gemini LLM API with our countermeasures knowledge base for instant natural language Q&A: *"Why did cycle time drop on station 4?"*.
+  * Automated shift change handover reports generated via `/api/report`.
+* **Phase 3 (Months 4–6): Multi-Line Enterprise Rollout**:
+  * Scale the engine across all 10 assembly lines and integrate with Magna's corporate MES/ERP systems.
+
+> 🎙️ **Speaker Notes (04:35 – 05:00)**:
+> "What are the next steps? Our architecture is containerized, modular, and ready for deployment.
+> Next week, we can connect live OPC-UA feeds directly from station PLCs. Next month, our LLM copilot will allow technicians to ask natural language questions right from the line.
+> The AI OEE Improvement Engine is not just a hackathon prototype — it is a production-ready operational tool that makes every manufacturing loss visible, predictable, and solvable in real time.
+> Thank you, and we welcome your questions."
