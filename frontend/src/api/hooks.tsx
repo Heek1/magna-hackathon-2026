@@ -92,6 +92,8 @@ const TICK_MS = 250;
 const REFRESH_MS = 3000;
 /** Never extrapolate the clock further than this past the last server event. */
 const MAX_EXTRAPOLATE_MS = 1500;
+/** How often fixes are re-read, so a change made on another phone shows up (also while paused). */
+const ACTIONS_POLL_MS = 5000;
 
 export function SimProvider({ children }: { children: ReactNode }) {
   // ---- live state (SSE) ----
@@ -221,18 +223,42 @@ export function SimProvider({ children }: { children: ReactNode }) {
   // ---- actions (shared by Live and Actions pages) ----
   const [actionList, setActionList] = useState<Action[]>();
   const [actionsError, setActionsError] = useState<string | null>(null);
-  const actionsLoaded = actionList !== undefined;
+  // A poll that overlaps one of our own saves is dropped: it could bring back the old values.
+  const actionWrites = useRef({ active: 0, finished: 0 });
+  const writeAction = useCallback(async <T,>(run: () => Promise<T>): Promise<T> => {
+    actionWrites.current.active++;
+    try {
+      return await run();
+    } finally {
+      actionWrites.current.active--;
+      actionWrites.current.finished++;
+    }
+  }, []);
   useEffect(() => {
-    if (actionsLoaded) return; // loaded once; afterwards kept in sync by our own mutations
-    const ctrl = new AbortController();
-    api<Action[]>("/actions", { signal: ctrl.signal })
-      .then((a) => {
-        setActionList(a);
-        setActionsError(null);
-      })
-      .catch((e) => e.name !== "AbortError" && setActionsError(errorText(e)));
-    return () => ctrl.abort();
-  }, [actionsLoaded, refreshKey]);
+    let ctrl: AbortController | undefined;
+    const load = () => {
+      if (document.hidden || actionWrites.current.active > 0) return;
+      ctrl?.abort();
+      const current = new AbortController();
+      ctrl = current;
+      const finished = actionWrites.current.finished;
+      api<Action[]>("/actions", { signal: current.signal })
+        .then((a) => {
+          if (actionWrites.current.active > 0 || actionWrites.current.finished !== finished) return;
+          setActionList((list) => (JSON.stringify(list) === JSON.stringify(a) ? list : a));
+          setActionsError(null);
+        })
+        .catch((e) => e.name !== "AbortError" && setActionsError(errorText(e)));
+    };
+    load();
+    const timer = window.setInterval(load, ACTIONS_POLL_MS);
+    document.addEventListener("visibilitychange", load);
+    return () => {
+      ctrl?.abort();
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", load);
+    };
+  }, []);
 
   const createAction = useCallback(async (from: Insight | ActionCreate) => {
     const body: ActionCreate =
@@ -244,10 +270,10 @@ export function SimProvider({ children }: { children: ReactNode }) {
             status: "open",
           }
         : from;
-    const created = await api<Action>("/actions", { method: "POST", json: body });
+    const created = await writeAction(() => api<Action>("/actions", { method: "POST", json: body }));
     setActionList((list) => [...(list ?? []), created]);
     return created;
-  }, []);
+  }, [writeAction]);
 
   const actionsRef = useRef(actionList);
   actionsRef.current = actionList;
@@ -255,7 +281,7 @@ export function SimProvider({ children }: { children: ReactNode }) {
     const before = actionsRef.current;
     setActionList(before?.map((a) => (a.id === id ? { ...a, status } : a)));
     try {
-      const updated = await api<Action>(`/actions/${id}`, { method: "PATCH", json: { status } });
+      const updated = await writeAction(() => api<Action>(`/actions/${id}`, { method: "PATCH", json: { status } }));
       setActionList((list) => list?.map((a) => (a.id === id ? updated : a)));
       setActionsError(null);
     } catch (e) {
@@ -263,7 +289,7 @@ export function SimProvider({ children }: { children: ReactNode }) {
       setActionsError(errorText(e));
       throw e;
     }
-  }, []);
+  }, [writeAction]);
 
   // ---- insights: one shared request for every consumer ----
   const insights = useFetch<Insight[]>("/insights", refreshKey);

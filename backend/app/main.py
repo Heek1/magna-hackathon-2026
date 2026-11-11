@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import date, datetime
@@ -22,6 +23,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 DATA_PATH = os.environ.get("OEE_DATA", str(BACKEND_DIR.parent / "data" / "oee.xlsx"))
 DB_PATH = os.environ.get("ACTIONS_DB", str(BACKEND_DIR / "actions.db"))
 TICK_SECONDS = 1.0
+logger = logging.getLogger(__name__)
 
 sim = Simulator(data.load(DATA_PATH))
 actions = ActionStore(DB_PATH)
@@ -52,7 +54,10 @@ if os.environ.get("DEMO_SEED_ACTIONS") == "1":
 async def _ticker() -> None:
     while True:
         await asyncio.sleep(TICK_SECONDS)
-        sim.advance(TICK_SECONDS)
+        try:
+            sim.advance(TICK_SECONDS)
+        except Exception:  # one bad tick must not freeze the simulator until a restart
+            logger.exception("Simulator tick failed")
 
 
 @asynccontextmanager
