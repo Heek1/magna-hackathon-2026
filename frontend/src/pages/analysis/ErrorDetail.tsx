@@ -41,7 +41,7 @@ export default function ErrorDetailPage() {
     try {
       const insight = insights.data?.find((i) => i.code === code);
       await createAction({ title, owner: d.fix?.owner_role ?? null, insight_id: insight?.id ?? null });
-      navigate("/fixes");
+      navigate("/fixes", { state: { scope: "all" } }); // the new fix may belong to someone else
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {

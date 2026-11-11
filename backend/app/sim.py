@@ -77,6 +77,7 @@ class Simulator:
     """Holds sim_time, speed (sim seconds per real second) and the paused flag."""
 
     DEFAULT_SPEED = 60.0
+    MAX_SPEED = 3600.0  # 1 real second = 1 simulated hour; the app offers up to 300
 
     def __init__(self, ds: Dataset, speed: float = DEFAULT_SPEED, paused: bool = False):
         self.speed = speed
@@ -129,8 +130,8 @@ class Simulator:
     def control(self, speed: float | None = None, jump_to: datetime | None = None,
                 paused: bool | None = None) -> None:
         if speed is not None:
-            if speed <= 0:
-                raise ValueError("speed must be > 0")
+            if not 0 < speed <= self.MAX_SPEED:  # also False for NaN
+                raise ValueError(f"speed must be > 0 and at most {self.MAX_SPEED:g}")
             self.speed = float(speed)
         if paused is not None:
             self.paused = bool(paused)

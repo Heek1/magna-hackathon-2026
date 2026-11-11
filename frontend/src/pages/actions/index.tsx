@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Check, RotateCcw, User } from "lucide-react";
 import type { Action, ActionStatus, EventKind } from "@/types/api";
@@ -35,7 +35,11 @@ export default function FixesPage() {
   const desktop = useIsDesktop();
   const [tab, setTab] = useState<ActionStatus>("open");
   const [role] = useRole();
-  const [scope, setScope] = useState<"mine" | "all">("mine");
+  // "Mine" by default, but never an empty screen: with nothing of yours, or right after creating
+  // a fix for someone else (route state from Error detail), show everything.
+  const { state: routeState } = useLocation();
+  const [pickedScope, setScope] = useState<"mine" | "all" | null>((routeState as { scope?: "all" } | null)?.scope ?? null);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const rows = useMemo<Row[]>(() => {
     const byFix = new Map<string, NonNullable<typeof losses.data>[number]>();
@@ -57,6 +61,11 @@ export default function FixesPage() {
   }, [actions.data, insights.data, losses.data]);
 
   const mineCount = rows.filter((r) => r.action.owner === role).length;
+  const scope = pickedScope ?? (actions.data && mineCount === 0 ? "all" : "mine");
+  const changeStatus = (id: number, status: ActionStatus) => {
+    setSaveFailed(false);
+    actions.updateStatus(id, status).catch(() => setSaveFailed(true));
+  };
   const shown = scope === "mine" && role ? rows.filter((r) => r.action.owner === role) : rows;
   const count = (s: ActionStatus) => shown.filter((r) => r.action.status === s).length;
   const sum = (done: boolean) => shown.filter((r) => (r.action.status === "done") === done).reduce((s, r) => s + (r.gainPcs ?? 0), 0);
@@ -102,6 +111,12 @@ export default function FixesPage() {
         </div>
       </Card>
 
+      {saveFailed && (
+        <p role="alert" className="px-1 text-caption text-status-stop">
+          Could not save the change. Check the connection and try again.
+        </p>
+      )}
+
       {actions.data === undefined ? (
         <StateCard state={actions.error ? "error" : "loading"} error={actions.error} />
       ) : shown.length === 0 ? (
@@ -116,7 +131,7 @@ export default function FixesPage() {
               <h2 className="flex items-center gap-2 px-1 text-title-m">
                 {c.label} <span className="num text-num-s text-text-tertiary">{count(c.value)}</span>
               </h2>
-              <FixList rows={shown.filter((r) => r.action.status === c.value)} />
+              <FixList rows={shown.filter((r) => r.action.status === c.value)} onChange={changeStatus} />
             </section>
           ))}
         </div>
@@ -124,7 +139,7 @@ export default function FixesPage() {
         <>
           <SegmentedControl label="Status" value={tab} onChange={setTab} options={COLUMNS.map((c) => ({ value: c.value, label: `${c.label} ${count(c.value)}` }))} />
           <div className="flex flex-col gap-3">
-            <FixList rows={shown.filter((r) => r.action.status === tab)} />
+            <FixList rows={shown.filter((r) => r.action.status === tab)} onChange={changeStatus} />
           </div>
         </>
       )}
@@ -132,14 +147,16 @@ export default function FixesPage() {
   );
 }
 
-function FixList({ rows }: { rows: Row[] }) {
+type ChangeStatus = (id: number, status: ActionStatus) => void;
+
+function FixList({ rows, onChange }: { rows: Row[]; onChange: ChangeStatus }) {
   if (rows.length === 0)
     return <p className="rounded-card border border-dashed px-4 py-6 text-center text-caption text-text-tertiary">Nothing here</p>;
   return (
     <AnimatePresence initial={false}>
       {rows.map((r) => (
         <motion.div key={r.action.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.2 }}>
-          <FixCard row={r} />
+          <FixCard row={r} onChange={onChange} />
         </motion.div>
       ))}
     </AnimatePresence>
@@ -152,8 +169,7 @@ const NEXT: Record<ActionStatus, { to: ActionStatus; label: string; icon: typeof
   done: { to: "open", label: "Reopen", icon: RotateCcw },
 };
 
-function FixCard({ row }: { row: Row }) {
-  const { updateStatus } = useActions();
+function FixCard({ row, onChange }: { row: Row; onChange: ChangeStatus }) {
   const navigate = useNavigate();
   const { action, code, kind, gainPcs } = row;
   const step = NEXT[action.status];
@@ -176,7 +192,7 @@ function FixCard({ row }: { row: Row }) {
         </span>
         <span className="flex-1" />
         <button
-          onClick={() => updateStatus(action.id, step.to)}
+          onClick={() => onChange(action.id, step.to)}
           className={cn(
             "inline-flex h-9 items-center gap-1.5 rounded-chip px-3.5 text-caption font-medium transition active:scale-95",
             step.to === "done" ? "bg-status-fix text-white" : step.to === "open" ? "bg-bg-subtle text-text-secondary" : "bg-bg-ink text-white",

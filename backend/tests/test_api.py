@@ -13,6 +13,12 @@ def _jump(t):
     return r.json()
 
 
+def test_unusable_speed_gets_422():
+    for raw in ('{"speed": NaN}', '{"speed": Infinity}', '{"speed": 1e300}'):
+        r = client.post("/api/sim/control", content=raw, headers={"Content-Type": "application/json"})
+        assert r.status_code == 422, raw
+
+
 def test_state_shape_and_active_downtime():
     _jump("2026-11-25T09:20:00")
     s = client.get("/api/state").json()

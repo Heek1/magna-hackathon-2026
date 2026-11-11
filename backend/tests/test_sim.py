@@ -73,6 +73,17 @@ def test_advance_pause_speed_and_shift_rollover(ds):
     assert sim.sim_time == datetime(2026, 11, 9, 6, 1)
 
 
+@pytest.mark.parametrize("speed", [float("nan"), float("inf"), 1e300, 0, -1])
+def test_unusable_speed_is_rejected_and_the_clock_keeps_running(ds, speed):
+    sim = Simulator(ds, speed=60)
+    start = sim.sim_time
+    with pytest.raises(ValueError):
+        sim.control(speed=speed)
+    assert sim.speed == 60
+    sim.advance(10)
+    assert (sim.sim_time - start).total_seconds() == 600
+
+
 def test_jump_outside_shift_is_clamped(ds):
     sim = Simulator(ds, paused=True)
     sim.jump(datetime(2026, 11, 7, 12, 0))  # Saturday

@@ -6,7 +6,7 @@ import { SideNav } from "@/components/layout/SideNav";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/button";
 import { StateView } from "@/components/Panel";
-import { useIsDesktop } from "@/lib/useMediaQuery";
+import { useFitsThreeColumns, useIsDesktop } from "@/lib/useMediaQuery";
 import { useDocumentLang, useT } from "@/lib/i18n";
 import { useRole } from "@/lib/role";
 import { RolePicker } from "@/components/RolePicker";
@@ -63,20 +63,27 @@ export function AppShell() {
 
 /**
  * Desktop and projector: Now and Top errors side by side; Error detail as a right-hand panel.
+ * Where three columns do not fit (tablets, small laptops), the panel takes the place of Now.
  * Each column scrolls on its own.
  */
 export function DesktopBoard({ now, errors, detail }: { now: ReactNode; errors: ReactNode; detail?: ReactNode }) {
   const t = useT();
   const navigate = useNavigate();
   const { search } = useLocation();
+  const roomForNow = useFitsThreeColumns();
+  const showNow = !detail || roomForNow;
   return (
     <div
       className={cn(
         "grid h-full gap-6 px-2 py-6 pr-6",
-        detail ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(380px,440px)]" : "grid-cols-2",
+        !detail
+          ? "grid-cols-2"
+          : showNow
+            ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(380px,440px)]"
+            : "grid-cols-[minmax(0,1fr)_minmax(380px,440px)]",
       )}
     >
-      <Column>{now}</Column>
+      {showNow && <Column>{now}</Column>}
       <Column>{errors}</Column>
       {detail && (
         <aside aria-label="Error detail" className="scroll-thin min-h-0 overflow-y-auto rounded-hero bg-bg-card px-gutter shadow-card">

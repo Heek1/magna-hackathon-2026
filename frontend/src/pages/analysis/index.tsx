@@ -88,6 +88,7 @@ function FixFirst({ item, kind, period, onOpen }: { item: Loss; kind: EventKind;
   const insights = useInsights();
   const [role] = useRole();
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   const pattern = detail.data ? patternLabel(detail.data) : null;
   const gain = detail.data?.gain_pp ?? item.loss_pp;
   const title = item.fix?.action ?? `Remove ${item.code}`;
@@ -97,9 +98,12 @@ function FixFirst({ item, kind, period, onOpen }: { item: Loss; kind: EventKind;
     e.stopPropagation();
     if (assigned || busy) return;
     setBusy(true);
+    setFailed(false);
     try {
       const insight = insights.data?.find((i) => i.code === item.code);
       await createAction({ title, owner: item.fix?.owner_role ?? null, insight_id: insight?.id ?? null });
+    } catch {
+      setFailed(true);
     } finally {
       setBusy(false);
     }
@@ -156,6 +160,11 @@ function FixFirst({ item, kind, period, onOpen }: { item: Loss; kind: EventKind;
           {assigned ? "Assigned" : "Assign"}
         </button>
       </div>
+      {failed && (
+        <p role="alert" className="text-caption text-status-stop">
+          Could not assign. Check the connection and try again.
+        </p>
+      )}
     </Card>
   );
 }
