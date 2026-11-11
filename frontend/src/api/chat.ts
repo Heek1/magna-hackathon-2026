@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from "react";
 import { ApiError, api, qs } from "@/api/client";
+import { useSimState } from "@/api/hooks";
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -55,12 +56,13 @@ export interface ChatSuggestions {
   suggestions: string[];
 }
 
-// One request per screen and role for the whole app session. A 503 (no LLM key) is remembered;
-// any other failure (backend restarting…) is tried again the next time a screen asks.
+// One request per screen, role and simulated day. A new day (a jump in the simulation) asks again,
+// which also makes the backend answer the starter questions for that day in the background.
+// A 503 (no LLM key) is remembered; any other failure is tried again the next time a screen asks.
 const cache = new Map<string, Promise<string[] | null>>();
 
-function loadSuggestions(code: string | null, role: string | null): Promise<string[] | null> {
-  const key = `${code ?? ""}|${role ?? ""}`;
+function loadSuggestions(code: string | null, role: string | null, day: string): Promise<string[] | null> {
+  const key = `${code ?? ""}|${role ?? ""}|${day}`;
   let request = cache.get(key);
   if (!request) {
     request = api<string[]>(`/chat/suggestions${qs({ code, role })}`).catch((e) => {
@@ -75,14 +77,16 @@ function loadSuggestions(code: string | null, role: string | null): Promise<stri
 /** Starter questions for this screen and role; `available: false` hides the feature. */
 export function useChatSuggestions(code: string | null = null, role: string | null = null): ChatSuggestions {
   const [state, setState] = useState<ChatSuggestions>({ available: null, suggestions: [] });
+  const day = useSimState().data?.shift.date ?? "";
   useEffect(() => {
     let alive = true;
-    loadSuggestions(code, role).then((list) => {
+    loadSuggestions(code, role, day).then((list) => {
+      // Keep what is shown while a new day loads; only a definite answer changes it.
       if (alive) setState(list ? { available: true, suggestions: list } : { available: false, suggestions: [] });
     });
     return () => {
       alive = false;
     };
-  }, [code, role]);
+  }, [code, role, day]);
   return state;
 }

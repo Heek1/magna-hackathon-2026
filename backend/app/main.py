@@ -202,6 +202,10 @@ def get_chat_suggestions(code: str | None = Query(None, max_length=32),
         raise HTTPException(503, f"Chat unavailable: {exc}") from exc
 
 
+# Starter answers for the first visitor are ready before anyone asks (background, no-op without a key).
+insights_bridge.warm_chat(sim.snapshot().as_frames())
+
+
 # ---------- actions ----------
 
 class ActionIn(BaseModel):
