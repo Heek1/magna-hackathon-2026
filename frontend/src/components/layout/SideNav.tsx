@@ -1,17 +1,19 @@
 import { NavLink } from "react-router-dom";
 import type { TabItem } from "@/components/TabBar";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { SimSettings } from "@/components/SimSettings";
 
 /** Left navigation for desktop and projector (≥ 1024 px); the same items as the phone TabBar. */
 export function SideNav({ items, className }: { items: TabItem[]; className?: string }) {
+  const t = useT();
   return (
-    <nav aria-label="Main" className={cn("flex w-60 shrink-0 flex-col gap-6 px-4 py-6", className)}>
+    <nav aria-label={t("nav.main")} className={cn("flex w-60 shrink-0 flex-col gap-6 px-4 py-6", className)}>
       <div className="flex items-center gap-2.5 px-3">
         <span className="h-3 w-3 rounded-sm bg-status-stop" aria-hidden />
         <div className="flex flex-col">
           <span className="text-title-m text-text-primary">OEE Engine</span>
-          <span className="text-caption text-text-tertiary">Line L01 · E-drive</span>
+          <span className="text-caption text-text-tertiary">{t("brand.lineDrive")}</span>
         </div>
       </div>
       <ul className="flex flex-col gap-1">

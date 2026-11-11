@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Pause, Play, Presentation, SlidersHorizontal, X } from "lucide-react";
+import { Moon, Pause, Play, Presentation, SlidersHorizontal, Sun, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { SPEEDS, useSimClock, useSimControl, useSimState } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { dayLabel, hhmmss, toLocalInput } from "@/lib/format";
+import { LANGS, useLang, useT, type Lang } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
+import { useBackToClose } from "@/lib/useBackToClose";
 import { cn } from "@/lib/utils";
-import { motion as tokens } from "@/theme/tokens";
+import { motion as tokens, type ThemeName } from "@/theme/tokens";
 
 /**
- * Simulator controls (pause, speed, jump to date and time) in a bottom sheet, off the main screen.
- * Renders its own trigger button.
+ * Settings in a bottom sheet, off the main screen: language, light or dark theme, and the simulator
+ * (pause, speed, jump to date and time). Renders its own trigger button.
  */
 export function SimSettings({ className, withLabel }: { className?: string; withLabel?: boolean }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   return (
     <>
       <Button
@@ -22,11 +26,11 @@ export function SimSettings({ className, withLabel }: { className?: string; with
         size={withLabel ? "md" : "icon"}
         className={cn(withLabel && "justify-start px-3", className)}
         onClick={() => setOpen(true)}
-        aria-label="Simulation settings"
+        aria-label={t("settings.title")}
         aria-haspopup="dialog"
       >
         <SlidersHorizontal className="h-5 w-5" aria-hidden />
-        {withLabel && "Simulation"}
+        {withLabel && t("settings.title")}
       </Button>
       <AnimatePresence>{open && <Sheet onClose={() => setOpen(false)} />}</AnimatePresence>
     </>
@@ -34,6 +38,10 @@ export function SimSettings({ className, withLabel }: { className?: string; with
 }
 
 function Sheet({ onClose }: { onClose: () => void }) {
+  const t = useT();
+  const [lang, setLang] = useLang();
+  const [theme, setTheme] = useTheme();
+  useBackToClose(onClose);
   const { now, speed, paused } = useSimClock();
   const { data } = useSimState();
   const { setPaused, setSpeed, jumpTo, startDemo, error } = useSimControl();
@@ -75,20 +83,45 @@ function Sheet({ onClose }: { onClose: () => void }) {
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ duration: tokens.enter, ease: tokens.ease }}
-        className="relative w-full max-w-md rounded-t-hero bg-bg-card px-gutter pb-[max(20px,env(safe-area-inset-bottom))] pt-3 shadow-card outline-none"
+        className="relative max-h-[90dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-hero bg-bg-card px-gutter pb-[max(20px,env(safe-area-inset-bottom))] pt-3 shadow-card outline-none"
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" aria-hidden />
         <div className="flex items-center justify-between">
           <h2 id="sim-settings-title" className="text-title-l">
-            Simulation
+            {t("settings.title")}
           </h2>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label={t("common.close")}>
             <X className="h-5 w-5" aria-hidden />
           </Button>
         </div>
-        <p className="text-caption text-text-secondary">
-          Replays the line data at speed. Every screen shows data up to this moment.
-        </p>
+
+        <div className="mt-2">
+          <span className="overline-label">{t("settings.language")}</span>
+          <SegmentedControl<Lang>
+            className="mt-2"
+            label={t("settings.language")}
+            value={lang}
+            onChange={setLang}
+            options={LANGS.map((l) => ({ value: l.lang, label: l.label }))}
+          />
+        </div>
+
+        <div className="mt-4">
+          <span className="overline-label">{t("settings.theme")}</span>
+          <SegmentedControl<ThemeName>
+            className="mt-2"
+            label={t("settings.theme")}
+            value={theme}
+            onChange={setTheme}
+            options={[
+              { value: "light", label: t("theme.light"), icon: Sun },
+              { value: "dark", label: t("theme.dark"), icon: Moon },
+            ]}
+          />
+        </div>
+
+        <h3 className="mt-6 border-t pt-4 text-title-m text-text-primary">{t("sim.title")}</h3>
+        <p className="text-caption text-text-secondary">{t("sim.intro")}</p>
 
         <button
           type="button"
@@ -103,28 +136,28 @@ function Sheet({ onClose }: { onClose: () => void }) {
             <Presentation className="h-5 w-5" aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-body font-semibold">Start demo</span>
-            <span className="block text-caption text-white/60">Wed 25 Nov 08:50 · 60× · camera stop at 09:08</span>
+            <span className="block text-body font-semibold">{t("sim.demo")}</span>
+            <span className="block text-caption text-white/60">{t("sim.demoHint")}</span>
           </span>
           <Play className="h-5 w-5 shrink-0" aria-hidden />
         </button>
 
         <div className="mt-4 flex items-center justify-between rounded-card bg-bg-subtle p-card-pad">
           <div>
-            <span className="overline-label">Sim time</span>
+            <span className="overline-label">{t("sim.time")}</span>
             <p className="num text-num-l text-text-primary">{data ? hhmmss(now) : "--:--:--"}</p>
-            <p className="text-caption text-text-secondary">{data ? dayLabel(now) : "Waiting for the backend"}</p>
+            <p className="text-caption text-text-secondary">{data ? dayLabel(now) : t("sim.waiting")}</p>
           </div>
-          <Button variant="primary" size="icon" onClick={() => setPaused(!paused)} aria-label={paused ? "Resume" : "Pause"}>
+          <Button variant="primary" size="icon" onClick={() => setPaused(!paused)} aria-label={t(paused ? "sim.resume" : "sim.pause")}>
             {paused ? <Play className="h-5 w-5" aria-hidden /> : <Pause className="h-5 w-5" aria-hidden />}
           </Button>
         </div>
 
         <div className="mt-4">
-          <span className="overline-label">Speed</span>
+          <span className="overline-label">{t("sim.speed")}</span>
           <SegmentedControl
             className="mt-2"
-            label="Simulation speed"
+            label={t("sim.speedLabel")}
             value={String(speed)}
             onChange={(v) => setSpeed(Number(v))}
             options={SPEEDS.map((s) => ({ value: String(s), label: `${s}×` }))}
@@ -133,7 +166,7 @@ function Sheet({ onClose }: { onClose: () => void }) {
 
         <form onSubmit={jump} className="mt-4">
           <label htmlFor="sim-jump" className="overline-label">
-            Jump to
+            {t("sim.jumpTo")}
           </label>
           <div className="mt-2 flex gap-2">
             <input
@@ -146,7 +179,7 @@ function Sheet({ onClose }: { onClose: () => void }) {
               className="num h-11 min-w-0 flex-1 rounded-button border bg-bg-card px-3 text-body"
             />
             <Button type="submit" variant="primary" disabled={!target}>
-              Jump
+              {t("sim.jump")}
             </Button>
           </div>
         </form>

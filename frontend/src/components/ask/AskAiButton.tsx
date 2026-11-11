@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
 import { useChatSuggestions } from "@/api/chat";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n";
 import { useRole } from "@/lib/role";
 import { cn } from "@/lib/utils";
 import { AiIcon, AskSheet, type AskMessage } from "./AskSheet";
@@ -21,6 +22,7 @@ export interface AskAiButtonProps {
  */
 export function AskAiButton({ code = null, variant = "icon", className }: AskAiButtonProps) {
   const [role] = useRole();
+  const t = useT();
   const { available, suggestions } = useChatSuggestions(code, role);
   const [open, setOpen] = useState(false);
   const [messages, setMessagesState] = useState<AskMessage[]>([]);
@@ -37,7 +39,7 @@ export function AskAiButton({ code = null, variant = "icon", className }: AskAiB
           size="icon"
           className={className}
           onClick={() => setOpen(true)}
-          aria-label="Ask AI"
+          aria-label={t("ask.title")}
           aria-haspopup="dialog"
         >
           <AiIcon />
@@ -53,7 +55,7 @@ export function AskAiButton({ code = null, variant = "icon", className }: AskAiB
           )}
         >
           <AiIcon className="h-4 w-4" />
-          Ask about {code}
+          {t("ask.button", { code: code ?? "" })}
         </button>
       )}
       {/* On <body>: an animated (transformed) page would otherwise clip the fixed sheet. */}

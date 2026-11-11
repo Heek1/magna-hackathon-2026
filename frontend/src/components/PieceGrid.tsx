@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { toneSolid, type Tone } from "@/lib/tone";
 
@@ -19,6 +20,7 @@ export interface PieceGridProps {
  * the rest good. A cause with any loss always gets at least one square.
  */
 export function PieceGrid({ total, stop, speed, defect, columns = 16, cells = 160, className }: PieceGridProps) {
+  const t = useT();
   if (total <= 0) return null;
   const share = (v: number) => (v > 0 ? Math.max(1, Math.round((v / total) * cells)) : 0);
   const s = share(stop);
@@ -30,7 +32,7 @@ export function PieceGrid({ total, stop, speed, defect, columns = 16, cells = 16
   return (
     <div
       role="img"
-      aria-label={`${Math.round(total)} possible pieces: ${Math.round(stop)} lost to stops, ${Math.round(speed)} to speed, ${Math.round(defect)} scrapped`}
+      aria-label={t("kpi.gridAria", { total: Math.round(total), stop: Math.round(stop), speed: Math.round(speed), defect: Math.round(defect) })}
       className={cn("grid gap-[2px]", className)}
       style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
     >

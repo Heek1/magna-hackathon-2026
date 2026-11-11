@@ -13,6 +13,14 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" href="/pwa-192.png" />
     <title>OEE Engine</title>
+    <!-- Before the first paint, so a dark-theme phone never flashes white. Same keys as src/lib/theme.ts. -->
+    <script>
+      try {
+        var t = localStorage.getItem("oee-engine.theme");
+        if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

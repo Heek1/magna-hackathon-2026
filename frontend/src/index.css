@@ -6,6 +6,23 @@
   :root {
     color-scheme: light;
     -webkit-tap-highlight-color: transparent;
+    /* iOS and Android: keep our text sizes when the phone is rotated. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  [data-theme="dark"] {
+    color-scheme: dark;
+  }
+  /* Taps respond at once (no double-tap zoom wait); a long press does not select button labels. */
+  a,
+  button,
+  input,
+  label {
+    touch-action: manipulation;
+  }
+  button {
+    -webkit-user-select: none;
+    user-select: none;
   }
   html,
   body,
@@ -20,6 +37,11 @@
   }
   :focus-visible {
     @apply outline outline-2 outline-offset-2 outline-status-speed;
+  }
+  /* The page does not bounce or pull-to-refresh away from a live screen. */
+  html,
+  body {
+    overscroll-behavior-y: none;
   }
 }
 
@@ -53,6 +75,20 @@
   }
   html {
     zoom: var(--app-zoom);
+  }
+}
+
+/* Fixes screen hardcodes a light track for its tabs; keep it readable in the dark theme. */
+[data-theme="dark"] .bg-\[\#E3E5EA\] {
+  background-color: rgb(var(--c-border-default));
+}
+
+/* iPhone zooms into any field under 16 px when it gets focus. Important: beats text-body on the field. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }
 

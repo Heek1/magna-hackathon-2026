@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { colors } from "@/theme/tokens";
 
 export interface OeeSparklineProps {
@@ -16,6 +17,7 @@ const PAD = 5;
 
 /** Small line of OEE by shift hour against the target: is the shift getting better or worse? */
 export function OeeSparkline({ values, target, slots = 8, className }: OeeSparklineProps) {
+  const t = useT();
   if (values.length === 0) return null;
   const lo = Math.min(0.5, target - 0.1, ...values);
   const y = (v: number) => PAD + (1 - (Math.min(1, v) - lo) / (1 - lo)) * (H - 2 * PAD);
@@ -32,7 +34,7 @@ export function OeeSparkline({ values, target, slots = 8, className }: OeeSparkl
       viewBox={`0 0 ${W} ${H}`}
       className={className}
       role="img"
-      aria-label={`OEE by hour, latest ${Math.round(last * 100)} percent, target ${Math.round(target * 100)} percent`}
+      aria-label={t("kpi.byHourAria", { value: Math.round(last * 100), target: Math.round(target * 100) })}
     >
       <line x1={PAD} x2={W - PAD} y1={y(target)} y2={y(target)} stroke={colors.tertiary} strokeWidth="1" strokeDasharray="3 3" />
       <path d={area} fill={color} opacity="0.1" />

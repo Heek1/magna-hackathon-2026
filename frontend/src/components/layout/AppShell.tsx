@@ -6,15 +6,19 @@ import { SideNav } from "@/components/layout/SideNav";
 import { Card } from "@/components/Card";
 import { StateView } from "@/components/Panel";
 import { useIsDesktop } from "@/lib/useMediaQuery";
+import { useDocumentLang, useT } from "@/lib/i18n";
 import { useRole } from "@/lib/role";
 import { RolePicker } from "@/components/RolePicker";
 import { cn } from "@/lib/utils";
 
-export const appTabs: TabItem[] = [
-  { to: "/", label: "Now", icon: Clock },
-  { to: "/errors", label: "Top errors", icon: ChartColumn },
-  { to: "/fixes", label: "Fixes", icon: SquareCheck },
-];
+function useAppTabs(): TabItem[] {
+  const t = useT();
+  return [
+    { to: "/", label: t("nav.now"), icon: Clock },
+    { to: "/errors", label: t("nav.errors"), icon: ChartColumn },
+    { to: "/fixes", label: t("nav.fixes"), icon: SquareCheck },
+  ];
+}
 
 /**
  * Phone: one screen at a time with the bottom TabBar (hidden on Error detail).
@@ -24,6 +28,8 @@ export function AppShell() {
   const desktop = useIsDesktop();
   const onDetail = !!useMatch("/errors/:code");
   const [role, setRole] = useRole();
+  const appTabs = useAppTabs();
+  useDocumentLang();
 
   // First visit on this phone: one tap to say who you are (no account, no password).
   if (!role) return <RolePicker onPick={setRole} />;

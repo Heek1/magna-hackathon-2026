@@ -1,5 +1,6 @@
 import type { LineEvent } from "@/types/api";
 import { parseTime } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 import { kindTone, toneSolid } from "@/lib/tone";
 import { cn } from "@/lib/utils";
 
@@ -26,9 +27,10 @@ export interface ShiftStripProps {
  * (their real length), defects and speed losses are thin ticks.
  */
 export function ShiftStrip({ events, now, className }: ShiftStripProps) {
+  const t = useT();
   const pct = (f: number) => `${f * 100}%`;
   return (
-    <div className={className} role="img" aria-label={`${events.length} errors across the shift, 06:00 to 14:00`}>
+    <div className={className} role="img" aria-label={t("errors.stripAria", { n: events.length })}>
       <div className="relative h-3 overflow-hidden rounded-full bg-bg-subtle">
         <span className="absolute inset-y-0 left-0 bg-border" style={{ width: pct(position(now)) }} />
         {events.map((e) => {
