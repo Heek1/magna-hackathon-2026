@@ -915,3 +915,48 @@ def test_api_suggestions_warm_up_the_screen(ds, monkeypatch):
     client.get("/api/chat/suggestions", params={"role": "Maintenance"})
     client.get("/api/chat/suggestions", params={"role": "Maintenance", "code": "ST-038"})
     assert warmed == [("Maintenance", None), ("Maintenance", "ST-038")]
+
+
+def test_a_tap_during_the_warm_up_waits_for_it_instead_of_asking_twice(ds, llm):
+    import threading
+    import time
+    frames = at(ds, "2026-11-25 09:20")
+    release = threading.Event()
+    real = llm.__call__
+
+    def slow(url, headers, payload, timeout):  # the warm-up's LLM call takes a while
+        release.wait(5)
+        return real(url, headers, payload, timeout)
+
+    chat_module._post = slow
+    assert chat_module.warm_up(frames, "Maintenance") == 4
+    time.sleep(0.2)  # the first starter is now running
+    first = STARTERS[0]
+    threading.Timer(0.3, release.set).start()
+    answer = chat(first, frames, role="Maintenance")  # tapped while it is being warmed up
+    assert answer["answer"].startswith("ST-038")
+    chat_module._warm_pool.submit(lambda: None).result(timeout=20)
+    asked = [c["body"]["contents"][-1]["parts"][0]["text"].endswith(f"Question: {first}") for c in llm.calls]
+    assert sum(asked) == 1 and len(llm.calls) == 4  # the tapped question went to the LLM once, not twice
+
+
+def test_a_tap_on_a_queued_question_asks_live_and_the_warm_up_skips_it(ds, llm):
+    import threading
+    import time
+    frames = at(ds, "2026-11-25 09:20")
+    release = threading.Event()
+    real = llm.__call__
+
+    def slow(url, headers, payload, timeout):
+        if "Why is OEE low" in json.loads(payload)["contents"][-1]["parts"][0]["text"]:
+            release.wait(5)
+        return real(url, headers, payload, timeout)
+
+    chat_module._post = slow
+    chat_module.warm_up(frames, "Maintenance")
+    time.sleep(0.2)
+    chat(STARTERS[3], frames, role="Maintenance")  # still queued behind the first: asked live
+    release.set()
+    chat_module._warm_pool.submit(lambda: None).result(timeout=20)
+    assert len(llm.calls) == 4  # the warm-up did not ask the fourth again
+
