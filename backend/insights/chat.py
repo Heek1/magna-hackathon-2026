@@ -32,8 +32,12 @@ from .whatif import SPEED_COLUMNS, what_if
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 # 3.6 Flash with minimal thinking answered the demo questions in ~2 s; 3.5 Flash-Lite is the
 # fallback (its own quota) when the first is busy or slow.
-DEFAULT_MODEL = "gemini-3.6-flash"           # override with GEMINI_MODEL
-FALLBACK_MODEL = "gemini-3.5-flash-lite"     # override with GEMINI_FALLBACK_MODEL ("" = none)
+# Free tier: gemini-3.6-flash allows only 20 requests per day per project (seen in its 429), which
+# the warm-up alone uses up; 3.5 Flash-Lite answers the demo questions correctly in 1-3 s and has a
+# far larger daily allowance, so it goes first and 3.6 Flash is the fallback.
+DEFAULT_MODEL = "gemini-3.5-flash-lite"      # override with GEMINI_MODEL
+FALLBACK_MODEL = "gemini-3.6-flash"          # override with GEMINI_FALLBACK_MODEL ("" = none)
+KEY_ENV = ("GEMINI_API_KEY", "GEMINI_API_KEY_2")  # the second key is optional; use another project
 TIMEOUT_S = 7.0     # the whole LLM part, both models included; then an engine-data answer or 503.
                     # 7 s keeps the typing dots in the app under 8 s with the network and snapshot.
 HEDGE_S = 2.5       # the fallback starts alongside a primary that has not answered by then
@@ -93,6 +97,24 @@ if not log.handlers:  # uvicorn does not configure app loggers; timings must rea
 
 class ChatUnavailable(RuntimeError):
     """No LLM key, or the LLM failed or timed out; the API turns this into 503."""
+
+
+class QuotaExceeded(ChatUnavailable):
+    """HTTP 429 from the LLM: a rate limit of this key's project for this model."""
+
+    def __init__(self, message: str, quota: str = "", limit: str = "", retry_s: float = 0.0):
+        super().__init__(message)
+        self.quota, self.limit, self.retry_s = quota, limit, retry_s
+
+
+def _keys() -> list[str]:
+    """The configured keys in order: GEMINI_API_KEY, then GEMINI_API_KEY_2 if set."""
+    keys = []
+    for name in KEY_ENV:
+        value = os.environ.get(name, "").strip()
+        if value and value not in keys:
+            keys.append(value)
+    return keys
 
 
 def _key() -> str:
@@ -352,12 +374,32 @@ def _http() -> httpx.Client:
         return _client
 
 
+def _quota_error(response) -> QuotaExceeded:
+    """The 429 body names the limit that was hit and when it resets."""
+    quota = limit = ""
+    retry_s = 0.0
+    try:
+        for detail in response.json().get("error", {}).get("details", []):
+            kind = detail.get("@type", "")
+            if kind.endswith("QuotaFailure"):
+                violation = (detail.get("violations") or [{}])[0]
+                quota, limit = violation.get("quotaId", ""), str(violation.get("quotaValue", ""))
+            elif kind.endswith("RetryInfo"):
+                retry_s = float(str(detail.get("retryDelay", "0")).rstrip("s") or 0)
+    except (ValueError, AttributeError, TypeError):
+        pass
+    text = f"LLM service returned HTTP 429 (quota {quota or 'unknown'}, limit {limit or '?'}"
+    return QuotaExceeded(text + (f", resets in {retry_s / 60:.0f} min)" if retry_s else ")"), quota, limit, retry_s)
+
+
 def _post(url: str, headers: dict, payload: bytes, timeout: float) -> dict:
-    """POST and return the JSON reply; ChatUnavailable on any HTTP or network failure."""
+    """POST and return the JSON reply; QuotaExceeded on 429, ChatUnavailable on any other failure."""
     try:
         response = _http().post(url, headers=headers, content=payload, timeout=timeout)
     except httpx.HTTPError as error:
         raise ChatUnavailable(f"LLM service did not answer ({type(error).__name__})") from error
+    if response.status_code == 429:
+        raise _quota_error(response)
     if response.status_code >= 400:
         raise ChatUnavailable(f"LLM service returned HTTP {response.status_code}")
     try:
@@ -366,19 +408,47 @@ def _post(url: str, headers: dict, payload: bytes, timeout: float) -> dict:
         raise ChatUnavailable("LLM service sent no JSON") from error
 
 
-def _request(model: str, key: str, body: bytes, timeout: float) -> tuple[str, str]:
-    try:
-        reply = _post(API_URL.format(model=model), {"Content-Type": "application/json", "x-goog-api-key": key},
-                      body, timeout)
-        parts = reply["candidates"][0]["content"]["parts"]
-    except ChatUnavailable as error:
-        raise ChatUnavailable(f"{model}: {error}") from error
-    except (KeyError, IndexError, TypeError) as error:
-        raise ChatUnavailable(f"{model}: unexpected LLM reply") from error
-    return "".join(part.get("text", "") for part in parts if not part.get("thought")), model
+# (model, key number) -> monotonic time until which its quota is known to be used up
+_exhausted: dict[tuple[str, int], float] = {}
+_exhausted_lock = threading.Lock()
+EXHAUSTED_MIN_S = 60  # a per-minute limit: try again soon; a daily one: skip until it resets
 
 
-def _call(key: str, body: bytes) -> tuple[str, str]:
+def _request(model: str, keys: list[str], body: bytes, timeout: float) -> tuple[str, str]:
+    """One model, each key in turn: a 429 on the first key is retried once with the second.
+    A key whose daily quota for this model is used up is skipped until it resets."""
+    deadline = time.monotonic() + timeout
+    last: ChatUnavailable | None = None
+    for number, key in enumerate(keys, start=1):
+        with _exhausted_lock:
+            until = _exhausted.get((model, number), 0)
+        if until > time.monotonic():
+            last = QuotaExceeded(f"{model}: key #{number} quota used up, skipped")
+            continue
+        left = deadline - time.monotonic()
+        if left <= 0.05:
+            break
+        try:
+            reply = _post(API_URL.format(model=model), {"Content-Type": "application/json", "x-goog-api-key": key},
+                          body, left)
+            parts = reply["candidates"][0]["content"]["parts"]
+            return "".join(part.get("text", "") for part in parts if not part.get("thought")), model
+        except QuotaExceeded as error:
+            log.warning("Gemini 429 QUOTA model=%s key=#%d quota=%s limit=%s resets_in=%.0f s%s", model, number,
+                        error.quota or "?", error.limit or "?", error.retry_s,
+                        " -> trying key #2" if number < len(keys) else "")
+            if error.retry_s >= EXHAUSTED_MIN_S:
+                with _exhausted_lock:
+                    _exhausted[(model, number)] = time.monotonic() + error.retry_s
+            last = QuotaExceeded(f"{model}: {error}", error.quota, error.limit, error.retry_s)
+        except ChatUnavailable as error:
+            raise ChatUnavailable(f"{model}: {error}") from error
+        except (KeyError, IndexError, TypeError) as error:
+            raise ChatUnavailable(f"{model}: unexpected LLM reply") from error
+    raise last or ChatUnavailable(f"{model}: no time left")
+
+
+def _call(keys: list[str], body: bytes) -> tuple[str, str]:
     """(text, model) of the first answer within TIMEOUT_S. The fallback model starts as soon as the
     primary fails, or runs alongside it once the primary has taken HEDGE_S without answering."""
     models = _models()
@@ -386,7 +456,7 @@ def _call(key: str, body: bytes) -> tuple[str, str]:
     pool = ThreadPoolExecutor(max_workers=len(models))
     errors: list[ChatUnavailable] = []
     try:
-        pending = {pool.submit(_request, models[0], key, body, TIMEOUT_S)}
+        pending = {pool.submit(_request, models[0], keys, body, TIMEOUT_S)}
         waiting = models[1:]
         while pending:
             left = deadline - time.monotonic()
@@ -400,7 +470,7 @@ def _call(key: str, body: bytes) -> tuple[str, str]:
                 except ChatUnavailable as error:
                     errors.append(error)
             if waiting and (not pending or not done):  # primary failed, or is slow
-                pending.add(pool.submit(_request, waiting.pop(0), key, body,
+                pending.add(pool.submit(_request, waiting.pop(0), keys, body,
                                         max(1.0, deadline - time.monotonic())))
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
@@ -474,6 +544,8 @@ def _cache_put(key: str, value: dict) -> None:
 def clear_cache() -> None:
     with _cache_lock:
         _cache.clear()
+    with _exhausted_lock:
+        _exhausted.clear()
     with _base_lock:
         _base_cache.clear()
 
@@ -523,7 +595,7 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
                              "responseMimeType": "application/json", "responseSchema": RESPONSE_SCHEMA},
     }).encode("utf-8")
     try:
-        text, model = _call(key, body)
+        text, model = _call(_keys(), body)
         result = _parse(text)
         if not result["answer"]:
             raise ChatUnavailable(f"{model}: empty answer")

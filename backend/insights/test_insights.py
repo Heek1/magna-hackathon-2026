@@ -486,7 +486,7 @@ def test_chat_returns_answer_sources_followups(ds, llm):
                       "followups": ["And on Thursdays?", "Who fixes it?", "How much do we gain?"]}
     call = llm.calls[0]
     assert "test-key" not in call["url"] and call["headers"]["x-goog-api-key"] == "test-key"
-    assert call["model"] == "gemini-3.6-flash" and call["timeout"] == 7
+    assert call["model"] == "gemini-3.5-flash-lite" and call["timeout"] == 7
     config = call["body"]["generationConfig"]
     assert config["responseMimeType"] == "application/json" and config["maxOutputTokens"] <= 256
     assert config["thinkingConfig"] == {"thinkingLevel": "minimal"}
@@ -573,7 +573,7 @@ def test_chat_llm_failures_are_unavailable(ds, llm):
     llm.text = BUSY
     with pytest.raises(ChatUnavailable):
         chat("Why?", at(ds, "2026-11-25 09:20"))
-    assert [c["model"] for c in llm.calls] == ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+    assert [c["model"] for c in llm.calls] == ["gemini-3.5-flash-lite", "gemini-3.6-flash"]
     llm.text = json.dumps({"answer": "", "sources": [], "followups": []})
     with pytest.raises(ChatUnavailable):
         chat("Why?", at(ds, "2026-11-25 09:20"))
@@ -611,16 +611,16 @@ def test_chat_cache_expires(ds, llm, monkeypatch):
 
 
 def test_chat_falls_back_when_the_primary_model_is_busy(ds, llm):
-    llm.text = {"gemini-3.6-flash": BUSY, "gemini-3.5-flash-lite": FALLBACK_REPLY}
+    llm.text = {"gemini-3.5-flash-lite": BUSY, "gemini-3.6-flash": FALLBACK_REPLY}
     assert chat("Why?", at(ds, "2026-11-25 09:20"))["answer"] == "From the fallback."
-    assert [c["model"] for c in llm.calls] == ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+    assert [c["model"] for c in llm.calls] == ["gemini-3.5-flash-lite", "gemini-3.6-flash"]
 
 
 def test_chat_races_the_fallback_against_a_slow_primary(ds, llm, monkeypatch):
     import time
     monkeypatch.setattr(chat_module, "HEDGE_S", 0.2)
-    llm.text = {"gemini-3.6-flash": REPLY, "gemini-3.5-flash-lite": FALLBACK_REPLY}
-    llm.delays = {"gemini-3.6-flash": 1.5}
+    llm.text = {"gemini-3.5-flash-lite": REPLY, "gemini-3.6-flash": FALLBACK_REPLY}
+    llm.delays = {"gemini-3.5-flash-lite": 1.5}
     start = time.perf_counter()
     assert chat("Why?", at(ds, "2026-11-25 09:20"))["answer"] == "From the fallback."
     assert time.perf_counter() - start < 1.2
@@ -630,7 +630,7 @@ def test_chat_times_out(ds, llm, monkeypatch):
     import time
     monkeypatch.setattr(chat_module, "TIMEOUT_S", 0.5)
     monkeypatch.setattr(chat_module, "HEDGE_S", 0.1)
-    llm.delays = {"gemini-3.6-flash": 2, "gemini-3.5-flash-lite": 2}
+    llm.delays = {"gemini-3.5-flash-lite": 2, "gemini-3.6-flash": 2}
     start = time.perf_counter()
     with pytest.raises(ChatUnavailable, match="within"):
         chat("Why?", at(ds, "2026-11-25 09:20"))
@@ -772,7 +772,7 @@ def test_api_chat_times_out_with_503(ds, monkeypatch):
     monkeypatch.setattr(chat_module, "TIMEOUT_S", 0.4)
     monkeypatch.setattr(chat_module, "HEDGE_S", 0.1)
     chat_module.clear_cache()
-    monkeypatch.setattr(chat_module, "_post", FakeLLM(REPLY, delays={"gemini-3.6-flash": 2, "gemini-3.5-flash-lite": 2}))
+    monkeypatch.setattr(chat_module, "_post", FakeLLM(REPLY, delays={"gemini-3.5-flash-lite": 2, "gemini-3.6-flash": 2}))
     client = TestClient(app)
     client.post("/api/sim/control", json={"paused": True, "jump_to": "2026-11-25T09:20:00"})
     r = client.post("/api/chat", json={"question": "Slow?"})
@@ -838,7 +838,7 @@ def test_chat_answers_from_engine_data_when_the_llm_fails(ds, llm):
     llm.text = BUSY
     result = chat("Why is OEE low on Wednesdays?", at(ds, "2026-11-25 09:20"), role="Maintenance")
     assert result["sources"] == ["Engine data"] and "+1.04 pp" in result["answer"]
-    assert [c["model"] for c in llm.calls] == ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+    assert [c["model"] for c in llm.calls] == ["gemini-3.5-flash-lite", "gemini-3.6-flash"]
     llm.text = REPLY  # the engine answer is not cached: the next tap asks the LLM again
     again = chat("Why is OEE low on Wednesdays?", at(ds, "2026-11-25 09:20"), role="Maintenance")
     assert again["sources"] != ["Engine data"] and len(llm.calls) == 3
@@ -848,7 +848,7 @@ def test_chat_answers_from_engine_data_when_the_llm_is_slow(ds, llm, monkeypatch
     import time
     monkeypatch.setattr(chat_module, "TIMEOUT_S", 0.4)
     monkeypatch.setattr(chat_module, "HEDGE_S", 0.1)
-    llm.delays = {"gemini-3.6-flash": 2, "gemini-3.5-flash-lite": 2}
+    llm.delays = {"gemini-3.5-flash-lite": 2, "gemini-3.6-flash": 2}
     start = time.perf_counter()
     result = chat("How much do we gain if we fix this?", at(ds, "2026-11-25 09:20"), code="ST-038")
     assert result["answer"].startswith("Fixing ST-038 gives +1.04 pp") and time.perf_counter() - start < 1.0
@@ -1073,3 +1073,91 @@ def test_warm_up_in_slovak(ds, llm):
         chat(question, frames, role="Maintenance")
     assert len(llm.calls) == 4  # all from the cache
 
+
+
+# ---------- quota safety: 429 logged, second key, used-up quota skipped ----------
+
+def _quota_429(retry_s=25602.0):
+    return chat_module.QuotaExceeded("LLM service returned HTTP 429 (quota GenerateRequestsPerDayPerProjectPerModel-FreeTier, limit 20)",
+                                     "GenerateRequestsPerDayPerProjectPerModel-FreeTier", "20", retry_s)
+
+
+class KeyedLLM(FakeLLM):
+    """Replies per (model, key): a value or an exception."""
+
+    def __init__(self, table):
+        super().__init__(REPLY)
+        self.table = table
+
+    def __call__(self, url, headers, payload, timeout):
+        model = url.split("/models/")[1].split(":")[0]
+        self.text = self.table.get((model, headers["x-goog-api-key"]), REPLY)
+        return super().__call__(url, headers, payload, timeout)
+
+
+def test_quota_error_is_parsed_from_the_429_body():
+    class Response:
+        def json(self):
+            return {"error": {"details": [
+                {"@type": "type.googleapis.com/google.rpc.QuotaFailure", "violations": [
+                    {"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier", "quotaValue": "20"}]},
+                {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "25602s"}]}}
+
+    error = chat_module._quota_error(Response())
+    assert (error.quota, error.limit, error.retry_s) == ("GenerateRequestsPerDayPerProjectPerModel-FreeTier", "20", 25602.0)
+    assert "resets in 427 min" in str(error)
+
+
+def test_second_key_is_tried_on_429_and_keys_are_never_logged(ds, llm, monkeypatch, caplog):
+    import logging
+    monkeypatch.setenv("GEMINI_API_KEY_2", "second-key")
+    fake = KeyedLLM({("gemini-3.5-flash-lite", "test-key"): _quota_429()})
+    monkeypatch.setattr(chat_module, "_post", fake)
+    chat_module.log.propagate = True
+    try:
+        with caplog.at_level(logging.INFO, logger="oee.chat"):
+            result = chat("Why?", at(ds, "2026-11-25 09:20"))
+    finally:
+        chat_module.log.propagate = False
+    assert result["answer"].startswith("ST-038")
+    assert [(c["model"], c["headers"]["x-goog-api-key"]) for c in fake.calls] == [
+        ("gemini-3.5-flash-lite", "test-key"), ("gemini-3.5-flash-lite", "second-key")]
+    logged = " ".join(r.getMessage() for r in caplog.records)
+    assert "Gemini 429 QUOTA model=gemini-3.5-flash-lite key=#1" in logged and "limit=20" in logged
+    assert "test-key" not in logged and "second-key" not in logged
+
+
+def test_a_used_up_daily_quota_is_skipped_until_it_resets(ds, llm, monkeypatch):
+    fake = KeyedLLM({("gemini-3.5-flash-lite", "test-key"): _quota_429()})
+    monkeypatch.setattr(chat_module, "_post", fake)
+    chat("First?", at(ds, "2026-11-25 09:20"))   # primary 429 -> fallback model answers
+    chat("Second?", at(ds, "2026-11-25 09:20"))  # the primary is not asked again
+    assert [c["model"] for c in fake.calls] == ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.6-flash"]
+
+
+def test_a_per_minute_429_is_not_remembered(ds, llm, monkeypatch):
+    fake = KeyedLLM({("gemini-3.5-flash-lite", "test-key"): _quota_429(retry_s=20)})
+    monkeypatch.setattr(chat_module, "_post", fake)
+    chat("First?", at(ds, "2026-11-25 09:20"))
+    chat("Second?", at(ds, "2026-11-25 09:20"))
+    assert [c["model"] for c in fake.calls].count("gemini-3.5-flash-lite") == 2
+
+
+def test_api_never_returns_the_keys(ds, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import insights_bridge
+    from app.main import app
+
+    monkeypatch.setattr(insights_bridge, "_warm_up", None)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("GEMINI_API_KEY_2", "second-key")
+    chat_module.clear_cache()
+    monkeypatch.setattr(chat_module, "_post", KeyedLLM({(m, k): _quota_429() for m in ("gemini-3.5-flash-lite", "gemini-3.6-flash")
+                                                        for k in ("test-key", "second-key")}))
+    client = TestClient(app)
+    client.post("/api/sim/control", json={"paused": True, "jump_to": "2026-11-25T09:20:00"})
+    r = client.post("/api/chat", json={"question": "Tell me a joke"})
+    assert r.status_code == 503 and "429" in r.text
+    assert "test-key" not in r.text and "second-key" not in r.text
+    chat_module.clear_cache()
