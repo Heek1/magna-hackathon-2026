@@ -29,8 +29,11 @@ export interface AskInput {
   role?: string | null;
 }
 
-/** The backend allows 10 s for the LLM; give the request a little more before giving up. */
-const ASK_TIMEOUT_MS = 15_000;
+/**
+ * The backend gives the LLM 7 s, then answers from the engine's own data, so an answer arrives
+ * within ~8 s. This limit only catches a backend that does not answer at all.
+ */
+const ASK_TIMEOUT_MS = 9_500;
 
 export async function askAi({ question, history = [], code, role }: AskInput): Promise<ChatReply> {
   const ctrl = new AbortController();

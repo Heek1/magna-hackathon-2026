@@ -22,6 +22,7 @@ import pandas as pd
 
 from .common import WEEKDAYS, normalize
 from .engine import _load_countermeasures, get_insights
+from . import fallback
 from .explain import explain
 from .upcoming import upcoming
 from .whatif import SPEED_COLUMNS, what_if
@@ -31,7 +32,8 @@ API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:gener
 # fallback (its own quota) when the first is busy or slow.
 DEFAULT_MODEL = "gemini-3.6-flash"           # override with GEMINI_MODEL
 FALLBACK_MODEL = "gemini-3.5-flash-lite"     # override with GEMINI_FALLBACK_MODEL ("" = none)
-TIMEOUT_S = 8.0     # the whole LLM part, both models included; then 503
+TIMEOUT_S = 7.0     # the whole LLM part, both models included; then an engine-data answer or 503.
+                    # 7 s keeps the typing dots in the app under 8 s with the network and snapshot.
 HEDGE_S = 2.5       # the fallback starts alongside a primary that has not answered by then
 MAX_OUTPUT_TOKENS = 256  # a 60-word answer + sources + followups is ~180 tokens
 CACHE_TTL_S = 600
@@ -115,6 +117,12 @@ def _by_weekday(ctx) -> list[dict]:
     return [{"day": WEEKDAYS[int(wd)][:3], "shifts": int(rows["date"].nunique()),
              **{k: v for k, v in _kpis(rows).items() if k in ("oee_pct", "downtime_min")}}
             for wd, rows in ctx.hours.groupby(ctx.hours["date"].dt.day_of_week)]
+
+
+def _today(ctx) -> dict:
+    kpis = _kpis(ctx.hours[ctx.hours["date"] == ctx.today])
+    return {"date": f"{ctx.today:%a %d %b}", "shift_hour": ctx.cur_hour, **kpis,
+            "vs_target_pp": round(kpis["oee_pct"] - 85.0, 1)}
 
 
 def _what(rows) -> str:
@@ -247,8 +255,7 @@ def build_snapshot(data, code: str | None = None, role: str | None = None,
         "target_pct": 85.0,
         "month": {"from": f"{ctx.hours['date'].min():%d %b}", "to": f"{ctx.hours['date'].max():%d %b}",
                   "shifts": int(ctx.hours["date"].nunique()), **_kpis(ctx.hours)},
-        "today": {"date": f"{ctx.today:%a %d %b}", "shift_hour": ctx.cur_hour,
-                  **_kpis(ctx.hours[ctx.hours["date"] == ctx.today])},
+        "today": _today(ctx),
         "oee_by_weekday": _by_weekday(ctx),
         "top_losses": _top_losses(ctx),
         "patterns": patterns,
@@ -462,8 +469,8 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
         return cached
 
     started = time.perf_counter()
-    snapshot = json.dumps(build_snapshot(data, code, role, actions, question), ensure_ascii=False,
-                          separators=(",", ":"), default=str)
+    snap = build_snapshot(data, code, role, actions, question)
+    snapshot = json.dumps(snap, ensure_ascii=False, separators=(",", ":"), default=str)
     built = time.perf_counter()
     contents = [{"role": "model" if t["role"] == "assistant" else "user", "parts": [{"text": t["text"]}]}
                 for t in turns]
@@ -477,14 +484,22 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
     }).encode("utf-8")
     try:
         text, model = _call(key, body)
+        result = _parse(text)
+        if not result["answer"]:
+            raise ChatUnavailable(f"{model}: empty answer")
+    except ChatUnavailable as error:
+        # The LLM failed or took too long: answer from our own data when the question allows it.
+        backup = fallback.answer(question, snap, code, role, suggestions(data, code, role))
+        log.warning("chat llm failed after %d ms (%s); %s", (time.perf_counter() - built) * 1000, error,
+                    "answered from engine data" if backup else "no engine answer, 503")
+        if backup is None:
+            raise
+        return backup  # not cached: the next tap tries the LLM again
     finally:
         answered = time.perf_counter()
         log.info("chat snapshot=%d ms (%d chars) llm=%d ms q=%r code=%s", (built - started) * 1000,
                  len(snapshot), (answered - built) * 1000, question[:60], code)
-    result = _parse(text)
     log.info("chat answered by %s", model)
-    if not result["answer"]:
-        raise ChatUnavailable("LLM returned an empty answer")
     unknown = unverified_numbers(result["answer"], snapshot + " " + question)
     if unknown:
         log.warning("chat numbers not in the snapshot %s q=%r answer=%r", unknown, question[:60],

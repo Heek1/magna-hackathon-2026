@@ -486,7 +486,7 @@ def test_chat_returns_answer_sources_followups(ds, llm):
                       "followups": ["And on Thursdays?", "Who fixes it?", "How much do we gain?"]}
     call = llm.calls[0]
     assert "test-key" not in call["url"] and call["headers"]["x-goog-api-key"] == "test-key"
-    assert call["model"] == "gemini-3.6-flash" and call["timeout"] == 8
+    assert call["model"] == "gemini-3.6-flash" and call["timeout"] == 7
     config = call["body"]["generationConfig"]
     assert config["responseMimeType"] == "application/json" and config["maxOutputTokens"] <= 256
     assert config["thinkingConfig"] == {"thinkingLevel": "minimal"}
@@ -777,3 +777,100 @@ def test_api_chat_times_out_with_503(ds, monkeypatch):
     client.post("/api/sim/control", json={"paused": True, "jump_to": "2026-11-25T09:20:00"})
     r = client.post("/api/chat", json={"question": "Slow?"})
     assert r.status_code == 503 and "within" in r.json()["detail"]
+
+
+# ---------- Ask AI never breaks the demo: engine-data answers when the LLM fails ----------
+
+fallback_module = importlib.import_module("insights.fallback")
+STARTERS = ["Why is OEE low on Wednesdays?", "What should Maintenance prepare for tomorrow?",
+            "Which error costs us the most?", "How is today's shift going?"]
+
+
+@pytest.fixture
+def real_fixes(monkeypatch):
+    monkeypatch.setattr(engine, "COUNTERMEASURES_PATH", Path(engine.__file__).with_name("countermeasures.json"))
+
+
+def test_fallback_answers_the_starters_from_engine_data(ds, real_fixes):
+    frames = at(ds, "2026-11-25 09:20")
+    expected = {
+        STARTERS[0]: "OEE on Wednesdays is 81.9 % against 89.5 % on the other days, with 121 min of downtime. "
+                     "ST-038 (Camera: Camera light module interrupted operation) stops every Wed 09:08 "
+                     "(4 of 4 weeks), 87 pcs so far; fixing it gives +1.04 pp.",
+        STARTERS[1]: "Tomorrow 08:08: ST-047 (Test nest allows air leakage), high confidence, ~15 pcs at risk. "
+                     "Fix (Maintenance): Replace worn test nest sealing gaskets on a weekly preventive "
+                     "maintenance schedule.",
+        STARTERS[2]: "Slowdown costs the most: 272.1 pcs this month. Then Microstops 162.5 pcs and ST-038 87 pcs.",
+        STARTERS[3]: "Today's OEE is 76.4 % (8.6 pp below the 85 % target): 44.9 pcs lost and 25 min of "
+                     "downtime so far.",
+    }
+    for question, text in expected.items():
+        snap = build_snapshot(frames, None, "Maintenance", [], question)
+        result = fallback_module.answer(question, snap, None, "Maintenance", STARTERS)
+        assert result["answer"] == text and result["sources"] == ["Engine data"]
+        assert question not in result["followups"] and len(result["followups"]) == 3
+        assert chat_module.unverified_numbers(text, json.dumps(snap)) == []
+
+
+def test_fallback_answers_error_detail_questions(ds, real_fixes):
+    for moment, gain in (("2026-11-25 09:20", "+1.04 pp OEE (80.1 pcs): OEE 88.0 % → 89.1 %"),
+                         ("2026-11-30 14:00", "+1.00 pp OEE (92.1 pcs): OEE 88.0 % → 89.0 %")):
+        frames = at(ds, moment)
+        snap = build_snapshot(frames, "ST-038", None, [], "How much do we gain if we fix this?")
+        assert fallback_module.answer("How much do we gain if we fix this?", snap, "ST-038")["answer"] == (
+            f"Fixing ST-038 gives {gain}.")
+    snap = build_snapshot(at(ds, "2026-11-25 09:20"), "ST-038")
+    assert fallback_module.answer("Why does ST-038 happen?", snap, "ST-038")["answer"].startswith(
+        "Stops every Wednesday at 09:08")
+    assert fallback_module.answer("When is ST-038 expected next?", snap, "ST-038")["answer"] == (
+        "ST-038 is expected next Wed 02 Dec 09:08 (high confidence).")
+    assert fallback_module.answer("What should we do about ST-038?", snap, "ST-038")["answer"].startswith(
+        "Fix (Maintenance): Inspect, clean")
+
+
+def test_fallback_does_not_guess(ds):
+    snap = build_snapshot(at(ds, "2026-11-25 09:20"), None, None, [], "What is the weather?")
+    assert fallback_module.answer("What is the weather?", snap) is None
+    assert fallback_module.answer("Why?", build_snapshot(at(ds, "2026-11-02 06:00"))) is None
+
+
+def test_chat_answers_from_engine_data_when_the_llm_fails(ds, llm):
+    llm.text = BUSY
+    result = chat("Why is OEE low on Wednesdays?", at(ds, "2026-11-25 09:20"), role="Maintenance")
+    assert result["sources"] == ["Engine data"] and "+1.04 pp" in result["answer"]
+    assert [c["model"] for c in llm.calls] == ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+    llm.text = REPLY  # the engine answer is not cached: the next tap asks the LLM again
+    again = chat("Why is OEE low on Wednesdays?", at(ds, "2026-11-25 09:20"), role="Maintenance")
+    assert again["sources"] != ["Engine data"] and len(llm.calls) == 3
+
+
+def test_chat_answers_from_engine_data_when_the_llm_is_slow(ds, llm, monkeypatch):
+    import time
+    monkeypatch.setattr(chat_module, "TIMEOUT_S", 0.4)
+    monkeypatch.setattr(chat_module, "HEDGE_S", 0.1)
+    llm.delays = {"gemini-3.6-flash": 2, "gemini-3.5-flash-lite": 2}
+    start = time.perf_counter()
+    result = chat("How much do we gain if we fix this?", at(ds, "2026-11-25 09:20"), code="ST-038")
+    assert result["answer"].startswith("Fixing ST-038 gives +1.04 pp") and time.perf_counter() - start < 1.0
+    llm.text = json.dumps({"answer": "", "sources": [], "followups": []})  # an empty answer too
+    llm.delays = {}
+    assert chat("Which error costs us the most?", at(ds, "2026-11-25 09:20"))["sources"] == ["Engine data"]
+
+
+def test_api_answers_from_engine_data_and_503_only_when_both_fail(ds, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import insights_bridge
+    from app.main import app
+
+    monkeypatch.setattr(insights_bridge, "_warm_up", None)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    chat_module.clear_cache()
+    monkeypatch.setattr(chat_module, "_post", FakeLLM(BUSY))
+    client = TestClient(app)
+    client.post("/api/sim/control", json={"paused": True, "jump_to": "2026-11-25T09:20:00"})
+    r = client.post("/api/chat", json={"question": "What should Maintenance prepare for tomorrow?", "role": "Maintenance"})
+    assert r.status_code == 200 and r.json()["answer"].startswith("Tomorrow 08:08: ST-047")
+    assert r.json()["sources"] == ["Engine data"]
+    assert client.post("/api/chat", json={"question": "Tell me a joke"}).status_code == 503
+
