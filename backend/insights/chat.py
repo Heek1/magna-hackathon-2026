@@ -485,7 +485,7 @@ def _history(history: list[dict] | None) -> list[dict]:
 
 
 def chat(question: str, data, history: list[dict] | None = None, code: str | None = None,
-         role: str | None = None, actions: list[dict] | None = None) -> dict:
+         role: str | None = None, actions: list[dict] | None = None, _warming_up: bool = False) -> dict:
     """{answer, sources, followups}. history: earlier turns [{role: user|assistant, text}]."""
     key = _key()
     question = (question or "").strip()
@@ -495,6 +495,8 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
     turns = _history(history)
     cache_key = _cache_key(question, code, role, turns, data)
     cached = _cache_get(cache_key)
+    if cached is None and not _warming_up:
+        cached = _wait_for_warm_up(cache_key)
     if cached is not None:
         log.info("chat cache hit q=%r code=%s", question[:60], code)
         return cached
@@ -567,8 +569,22 @@ def suggestions(data, code: str | None = None, role: str | None = None) -> list[
 
 
 _warm_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="chat-warm")
-_warming: set[str] = set()
+# key -> [done event, running?]: a tap on a question that is being warmed up right now waits for
+# that answer instead of asking the LLM a second time; a question still queued is asked live.
+_warming: dict[str, list] = {}
 _warm_lock = threading.Lock()
+
+
+def _wait_for_warm_up(key: str) -> dict | None:
+    with _warm_lock:
+        entry = _warming.get(key)
+        if not entry or not entry[1]:
+            return None
+        done = entry[0]
+    started = time.perf_counter()
+    done.wait(TIMEOUT_S + 1)
+    log.info("chat waited %d ms for the warm-up of the same question", (time.perf_counter() - started) * 1000)
+    return _cache_get(key)
 
 
 WARM_CODE_QUESTIONS = 2  # on Error detail: "Why does X happen?" and "How much do we gain if we fix X?"
@@ -592,16 +608,22 @@ def warm_up(data, role: str | None = None, actions: list[dict] | None = None, co
         with _warm_lock:
             if key in _warming or _cache_get(key) is not None:
                 continue
-            _warming.add(key)
+            _warming[key] = [threading.Event(), False]
 
         def run(q=question, k=key):
+            entry = _warming[k]
             try:
-                chat(q, data, code=code, role=role, actions=actions)
+                if _cache_get(k) is not None:  # a tap asked it live while it was queued
+                    return
+                with _warm_lock:
+                    entry[1] = True
+                chat(q, data, code=code, role=role, actions=actions, _warming_up=True)
             except Exception as error:  # a warm-up failure only means the tap asks live
                 log.info("chat warm-up skipped %r: %s", q[:60], error)
             finally:
                 with _warm_lock:
-                    _warming.discard(k)
+                    _warming.pop(k, None)
+                entry[0].set()
 
         _warm_pool.submit(run)
         queued += 1
