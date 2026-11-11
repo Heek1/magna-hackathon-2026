@@ -90,3 +90,11 @@ def test_seed_demo_actions_only_when_empty(tmp_path):
     assert {r["status"] for r in rows} == {"open", "in_progress", "done"}
     assert {r["owner"] for r in rows} == {"Maintenance", "Quality", "Logistics"}
     assert seed_demo_actions(store, load_fixes()) == 0  # never twice, never over real actions
+
+
+def test_insights_right_after_shift_start():
+    # 06:01 on the first day: NOK rows of the current hour are scaled to 0 pcs.
+    c = TestClient(app)
+    for t in ("2026-11-02T06:00:00", "2026-11-02T06:01:00", "2026-11-02T06:02:00"):
+        c.post("/api/sim/control", json={"paused": True, "jump_to": t})
+        assert c.get("/api/insights").status_code == 200

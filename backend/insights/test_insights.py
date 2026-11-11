@@ -486,7 +486,7 @@ def test_chat_returns_answer_sources_followups(ds, llm):
                       "followups": ["And on Thursdays?", "Who fixes it?", "How much do we gain?"]}
     call = llm.calls[0]
     assert "test-key" not in call["url"] and call["headers"]["x-goog-api-key"] == "test-key"
-    assert call["model"] == "gemini-3.5-flash-lite" and call["timeout"] == 7
+    assert call["model"] == "gemini-3.5-flash-lite" and abs(call["timeout"] - 7) < 0.1  # remaining budget, a hair under 7
     config = call["body"]["generationConfig"]
     assert config["responseMimeType"] == "application/json" and config["maxOutputTokens"] <= 256
     assert config["thinkingConfig"] == {"thinkingLevel": "minimal"}

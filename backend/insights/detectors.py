@@ -182,7 +182,9 @@ def slow_hour(ctx: Context) -> list[dict]:
 
 def quality(ctx: Context) -> list[dict]:
     """Pareto of scrap codes and a spike of a code today against its daily average."""
-    nok = ctx.nok
+    # The current hour is scaled to its elapsed part, so right after a shift starts every NOK row can
+    # still be 0 pcs: skip those, otherwise the shares below divide by zero.
+    nok = ctx.nok[ctx.nok["NOK_ks"] > 0]
     if nok.empty:
         return []
     out = []
