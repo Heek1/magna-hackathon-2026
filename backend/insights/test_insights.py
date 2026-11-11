@@ -834,12 +834,13 @@ def test_fallback_does_not_guess(ds):
     assert fallback_module.answer("Why?", build_snapshot(at(ds, "2026-11-02 06:00"))) is None
 
 
-def test_chat_answers_from_engine_data_when_the_llm_fails(ds, llm):
+def test_chat_answers_from_engine_data_when_the_llm_fails(ds, llm, monkeypatch):
     llm.text = BUSY
     result = chat("Why is OEE low on Wednesdays?", at(ds, "2026-11-25 09:20"), role="Maintenance")
     assert result["sources"] == ["Engine data"] and "+1.04 pp" in result["answer"]
     assert [c["model"] for c in llm.calls] == ["gemini-3.5-flash-lite", "gemini-3.6-flash"]
-    llm.text = REPLY  # the engine answer is not cached: the next tap asks the LLM again
+    llm.text = REPLY  # the engine answer is not cached: once the pause is over, the LLM is asked again
+    monkeypatch.setattr(chat_module, "_llm_down_until", 0.0)
     again = chat("Why is OEE low on Wednesdays?", at(ds, "2026-11-25 09:20"), role="Maintenance")
     assert again["sources"] != ["Engine data"] and len(llm.calls) == 3
 
@@ -1161,3 +1162,42 @@ def test_api_never_returns_the_keys(ds, monkeypatch):
     assert r.status_code == 503 and "429" in r.text
     assert "test-key" not in r.text and "second-key" not in r.text
     chat_module.clear_cache()
+
+
+# ---------- while the LLM is down, engine answers come at once ----------
+
+def test_after_an_llm_failure_engine_answers_come_at_once(ds, llm, monkeypatch):
+    import time
+    monkeypatch.setattr(chat_module, "TIMEOUT_S", 0.5)
+    monkeypatch.setattr(chat_module, "HEDGE_S", 0.1)
+    llm.delays = {"gemini-3.5-flash-lite": 2, "gemini-3.6-flash": 2}
+    frames = at(ds, "2026-11-25 09:20")
+    first = chat("Why is OEE low on Wednesdays?", frames)   # waits for the timeout
+    assert first["sources"] == ["Engine data"]
+    calls = len(llm.calls)
+    start = time.perf_counter()
+    second = chat("Koľko získame, ak opravíme ST-038?", frames, code="ST-038")
+    assert second["sources"] == ["Dáta systému"] and time.perf_counter() - start < 0.3
+    assert len(llm.calls) == calls  # the LLM was not asked
+    with pytest.raises(ChatUnavailable):  # a question the engine cannot answer still tries the LLM
+        chat("Tell me a joke", frames)
+    assert len(llm.calls) > calls
+
+
+def test_the_llm_is_tried_again_after_the_pause(ds, llm, monkeypatch):
+    llm.text = BUSY
+    frames = at(ds, "2026-11-25 09:20")
+    chat("Why is OEE low on Wednesdays?", frames)
+    monkeypatch.setattr(chat_module, "_llm_down_until", 0.0)  # the minute has passed
+    llm.text = REPLY
+    assert chat("Which error costs us the most?", frames)["answer"].startswith("ST-038")
+
+
+def test_warm_up_pauses_while_the_llm_is_down(ds, llm):
+    llm.text = BUSY
+    frames = at(ds, "2026-11-25 09:20")
+    chat("Why is OEE low on Wednesdays?", frames)
+    calls = len(llm.calls)
+    chat_module.warm_up(frames, "Maintenance")
+    chat_module._warm_pool.submit(lambda: None).result(timeout=10)
+    assert len(llm.calls) == calls
