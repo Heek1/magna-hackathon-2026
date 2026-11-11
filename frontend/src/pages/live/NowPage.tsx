@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Confidence, LineEvent, Loss, SimState, UpcomingStop } from "@/types/api";
-import { resourceState, useConnection, useEvents, useLosses, useSimClock, useSimState, useUpcoming, type Resource } from "@/api/hooks";
+import { resourceState, useConnection, useEvents, useLosses, useSimClock, useSimControl, useSimState, useUpcoming, type Resource } from "@/api/hooks";
 import { Card, CardHeader } from "@/components/Card";
 import { Chip } from "@/components/Chip";
 import { EventRow } from "@/components/EventRow";
@@ -57,9 +57,21 @@ export default function NowPage() {
 
 function Header({ date }: { date: Date | null }) {
   const connection = useConnection();
+  const { paused } = useSimClock();
+  const { setPaused } = useSimControl();
+  // Live chip doubles as pause/resume: one tap stops the clock while the judges ask questions.
   const chip =
     connection === "live" ? (
-      <Chip tone="fix" variant="surface">Live</Chip>
+      <button
+        type="button"
+        onClick={() => setPaused(!paused)}
+        aria-label={paused ? "Resume simulation" : "Pause simulation"}
+        className="transition active:scale-95"
+      >
+        <Chip tone={paused ? "defect" : "fix"} variant="surface">
+          {paused ? "Paused" : "Live"}
+        </Chip>
+      </button>
     ) : connection === "lost" ? (
       <Chip tone="stop" variant="surface">Offline</Chip>
     ) : (

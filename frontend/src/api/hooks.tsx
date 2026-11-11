@@ -50,6 +50,9 @@ export function resourceState<T>(r: Resource<T>, isEmpty?: (data: T) => boolean)
 /** Simulator speed multipliers; backend default is 60 (1 real second = 1 simulated minute). */
 export const SPEEDS = [1, 10, 60, 120, 300] as const;
 
+/** The demo moment: 18 sim minutes (≈ 18 s at 60×) before the Wednesday ST-038 camera stop. */
+export const DEMO = { start: "2026-11-25T08:50:00", speed: 60 } as const;
+
 export type Connection = "connecting" | "live" | "lost";
 
 interface ClockValue {
@@ -61,6 +64,8 @@ interface ControlValue {
   setPaused: (paused: boolean) => void;
   setSpeed: (speed: number) => void;
   jumpTo: (time: Date) => void;
+  /** One tap before the pitch: Wed 25 Nov 08:50, speed 60, running (ST-038 stops at 09:08). */
+  startDemo: () => void;
   error: string | null;
 }
 interface ActionsValue extends Resource<Action[]> {
@@ -202,6 +207,11 @@ export function SimProvider({ children }: { children: ReactNode }) {
         sendControl({ speed: s });
       },
       jumpTo: (t) => sendControl({ jump_to: toIso(t) }),
+      startDemo: () => {
+        setSpeedState(DEMO.speed);
+        setPausedState(false);
+        sendControl({ jump_to: DEMO.start, speed: DEMO.speed, paused: false });
+      },
       error: controlError,
     }),
     [sendControl, controlError],
