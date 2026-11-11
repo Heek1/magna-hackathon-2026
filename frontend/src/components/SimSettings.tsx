@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Moon, Pause, Play, Presentation, SlidersHorizontal, Sun, X } from "lucide-react";
+import { Moon, Pause, Play, Presentation, SlidersHorizontal, Sun, SunMoon, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { SPEEDS, useSimClock, useSimControl, useSimState } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { dayLabel, hhmmss, toLocalInput } from "@/lib/format";
-import { LANGS, useLang, useT, type Lang } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { useT } from "@/lib/i18n";
+import { useThemeChoice, type ThemeChoice } from "@/lib/theme";
 import { useBackToClose } from "@/lib/useBackToClose";
 import { cn } from "@/lib/utils";
-import { motion as tokens, type ThemeName } from "@/theme/tokens";
+import { motion as tokens } from "@/theme/tokens";
 
 /**
- * Settings in a bottom sheet, off the main screen: language, light or dark theme, and the simulator
+ * Settings in a bottom sheet, off the main screen: the theme (Auto, Light, Dark) and the simulator
  * (pause, speed, jump to date and time). Renders its own trigger button.
  */
 export function SimSettings({ className, withLabel }: { className?: string; withLabel?: boolean }) {
@@ -39,8 +39,7 @@ export function SimSettings({ className, withLabel }: { className?: string; with
 
 function Sheet({ onClose }: { onClose: () => void }) {
   const t = useT();
-  const [lang, setLang] = useLang();
-  const [theme, setTheme] = useTheme();
+  const [theme, setTheme] = useThemeChoice();
   useBackToClose(onClose);
   const { now, speed, paused } = useSimClock();
   const { data } = useSimState();
@@ -96,24 +95,14 @@ function Sheet({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="mt-2">
-          <span className="overline-label">{t("settings.language")}</span>
-          <SegmentedControl<Lang>
-            className="mt-2"
-            label={t("settings.language")}
-            value={lang}
-            onChange={setLang}
-            options={LANGS.map((l) => ({ value: l.lang, label: l.label }))}
-          />
-        </div>
-
-        <div className="mt-4">
           <span className="overline-label">{t("settings.theme")}</span>
-          <SegmentedControl<ThemeName>
+          <SegmentedControl<ThemeChoice>
             className="mt-2"
             label={t("settings.theme")}
             value={theme}
             onChange={setTheme}
             options={[
+              { value: "auto", label: t("theme.auto"), icon: SunMoon },
               { value: "light", label: t("theme.light"), icon: Sun },
               { value: "dark", label: t("theme.dark"), icon: Moon },
             ]}

@@ -9,7 +9,9 @@ const light = {
   "bg-canvas": "#F3F4F7", // page background
   "bg-card": "#FFFFFF", // cards, tab bar
   "bg-subtle": "#F6F7F9", // empty cells, progress tracks, rank badge
-  "bg-ink": "#0E1116", // hero status card, primary buttons
+  "bg-ink": "#0E1116", // hero status card
+  action: "#0E1116", // primary buttons
+  "action-text": "#FFFFFF",
   "text-primary": "#0B0D12", // titles, numbers
   "text-secondary": "#5F6672", // supporting text
   "text-tertiary": "#9AA1AD", // labels, times, inactive tabs
@@ -31,7 +33,9 @@ const dark: ThemeColors = {
   "bg-canvas": "#0D1014",
   "bg-card": "#171B21",
   "bg-subtle": "#222830",
-  "bg-ink": "#2A323E", // lighter than the cards, so the hero and primary buttons still stand out
+  "bg-ink": "#2A323E", // lighter than the cards, so the hero still stands out
+  action: "#F2F4F7", // filled and bright: a primary button must not get lost in the greys
+  "action-text": "#0B0D12",
   "text-primary": "#F2F4F7",
   "text-secondary": "#A7B0BD",
   "text-tertiary": "#7F8998",
@@ -121,6 +125,7 @@ export const tailwindColors = {
     tertiary: tw("text-tertiary"),
   },
   border: { DEFAULT: tw("border-default"), default: tw("border-default") },
+  action: { DEFAULT: tw("action"), text: tw("action-text") },
   status: {
     stop: { DEFAULT: tw("stop"), bg: tw("stop-bg") },
     defect: { DEFAULT: tw("defect"), bg: tw("defect-bg") },
@@ -131,8 +136,7 @@ export const tailwindColors = {
 };
 
 export const fonts = {
-  // Geist Sans has no Cyrillic; Inter is loaded for Cyrillic only and draws the Ukrainian text.
-  sans: ['"Geist Sans"', '"Inter"', "system-ui", "sans-serif"],
+  sans: ['"Geist Sans"', "system-ui", "sans-serif"],
   mono: ['"Geist Mono"', "ui-monospace", "monospace"],
 };
 

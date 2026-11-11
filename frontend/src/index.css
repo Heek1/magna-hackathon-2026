@@ -92,6 +92,12 @@
   }
 }
 
+/* Desktop columns: a thin scrollbar that does not compete with the content. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--c-border-strong)) transparent;
+}
+
 /* Parts on the belt in the status card. */
 .conveyor-parts {
   background-image: linear-gradient(90deg, currentColor 0 12px, transparent 12px);

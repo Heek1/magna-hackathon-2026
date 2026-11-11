@@ -1,4 +1,4 @@
-import { useT } from "@/lib/i18n";
+import { useT, type TKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { toneSolid, type Tone } from "@/lib/tone";
 
@@ -13,6 +13,28 @@ export interface PieceGridProps {
   /** Squares drawn. Fixed, so the card keeps its size as the shift goes on. */
   cells?: number;
   className?: string;
+}
+
+const LEGEND: { tone: Tone; key: TKey; faded?: boolean }[] = [
+  { tone: "stop", key: "legend.stops" },
+  { tone: "speed", key: "legend.speed" },
+  { tone: "defect", key: "legend.defects" },
+  { tone: "fix", key: "legend.good", faded: true },
+];
+
+/** One-line key to the grid's colors. */
+export function PieceLegend({ className }: { className?: string }) {
+  const t = useT();
+  return (
+    <ul className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-text-secondary", className)}>
+      {LEGEND.map(({ tone, key, faded }) => (
+        <li key={key} className="flex items-center gap-1.5 whitespace-nowrap">
+          <span className={cn("h-2 w-2 rounded-[2px]", toneSolid[tone], faded && "opacity-30")} aria-hidden />
+          {t(key)}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /**

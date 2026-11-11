@@ -1,7 +1,7 @@
 /**
- * Interface language: English, Slovak, Ukrainian. Until the person picks one, the phone's language
- * decides. The choice is kept in localStorage. Texts that come from the backend (error descriptions,
- * countermeasures, AI answers) stay in the language the backend sends.
+ * Interface texts. The app is English-only for now (ENABLED below). The Slovak and Ukrainian
+ * dictionaries are kept for later: to bring them back, add them to ENABLED, put a language control
+ * in Settings, and load a Cyrillic font (Geist Sans has none).
  *
  * Every language must define every key: a missing translation fails the build.
  */
@@ -9,11 +9,7 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 export type Lang = "en" | "sk" | "uk";
 
-export const LANGS: { lang: Lang; label: string }[] = [
-  { lang: "en", label: "English" },
-  { lang: "sk", label: "Slovenčina" },
-  { lang: "uk", label: "Українська" },
-];
+const ENABLED: readonly Lang[] = ["en"];
 
 const en = {
   "nav.main": "Main",
@@ -43,6 +39,7 @@ const en = {
   "settings.title": "Settings",
   "settings.language": "Language",
   "settings.theme": "Theme",
+  "theme.auto": "Auto",
   "theme.light": "Light",
   "theme.dark": "Dark",
 
@@ -88,6 +85,11 @@ const en = {
   "kpi.ifFixed": "If fixed first",
   "kpi.back": "{n} pcs back",
   "kpi.noStops": "No stops so far.",
+  "kpi.noEstimate": "No estimate right now.",
+  "legend.stops": "Stops",
+  "legend.speed": "Speed",
+  "legend.defects": "Defects",
+  "legend.good": "Good",
   "kpi.gridAria": "{total} possible pieces: {stop} lost to stops, {speed} to speed, {defect} scrapped",
 
   "errors.title": "Errors today",
@@ -182,6 +184,7 @@ const sk: Dict = {
   "settings.title": "Nastavenia",
   "settings.language": "Jazyk",
   "settings.theme": "Téma",
+  "theme.auto": "Auto",
   "theme.light": "Svetlá",
   "theme.dark": "Tmavá",
 
@@ -227,6 +230,11 @@ const sk: Dict = {
   "kpi.ifFixed": "Ak opravíte najprv",
   "kpi.back": "{n} ks späť",
   "kpi.noStops": "Zatiaľ bez zastavení.",
+  "kpi.noEstimate": "Odhad teraz nie je k dispozícii.",
+  "legend.stops": "Zastavenia",
+  "legend.speed": "Rýchlosť",
+  "legend.defects": "Nepodarky",
+  "legend.good": "Dobré",
   "kpi.gridAria": "{total} možných kusov: {stop} stratených zastaveniami, {speed} rýchlosťou, {defect} nepodarkov",
 
   "errors.title": "Chyby dnes",
@@ -318,6 +326,7 @@ const uk: Dict = {
   "settings.title": "Налаштування",
   "settings.language": "Мова",
   "settings.theme": "Тема",
+  "theme.auto": "Авто",
   "theme.light": "Світла",
   "theme.dark": "Темна",
 
@@ -363,6 +372,11 @@ const uk: Dict = {
   "kpi.ifFixed": "Якщо виправити першим",
   "kpi.back": "{n} шт назад",
   "kpi.noStops": "Поки без зупинок.",
+  "kpi.noEstimate": "Оцінка зараз недоступна.",
+  "legend.stops": "Зупинки",
+  "legend.speed": "Швидкість",
+  "legend.defects": "Брак",
+  "legend.good": "Добрі",
   "kpi.gridAria": "Можливо {total} шт: {stop} втрачено на зупинках, {speed} на швидкості, {defect} браку",
 
   "errors.title": "Помилки сьогодні",
@@ -439,8 +453,8 @@ const KEY = "oee-engine.lang";
 const EVENT = "oee-engine:lang";
 
 function fromPhone(): Lang {
-  const code = (navigator.language || "en").slice(0, 2).toLowerCase();
-  return code === "sk" || code === "uk" ? code : "en";
+  const code = (navigator.language || "en").slice(0, 2).toLowerCase() as Lang;
+  return ENABLED.includes(code) ? code : "en";
 }
 
 let session: Lang | null = null; // the choice, when storage is blocked
@@ -449,11 +463,11 @@ let session: Lang | null = null; // the choice, when storage is blocked
 export function getLang(): Lang {
   try {
     const v = localStorage.getItem(KEY);
-    if (v === "en" || v === "sk" || v === "uk") return v;
+    if (ENABLED.includes(v as Lang)) return v as Lang;
   } catch {
     /* private mode / storage blocked */
   }
-  return session ?? fromPhone();
+  return session && ENABLED.includes(session) ? session : fromPhone();
 }
 
 function fill(text: string, vars?: Record<string, string | number>): string {

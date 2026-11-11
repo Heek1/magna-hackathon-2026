@@ -1,58 +1,61 @@
 /**
- * Light or dark theme. Until the person picks one, the app follows the phone's system setting.
- * The choice is kept in localStorage; index.html reads the same key before the first paint.
+ * Theme choice: Auto (the default, follows the phone, also while the app is open), Light or Dark.
+ * Remembered on the phone in localStorage; index.html reads the same key before the first paint.
  */
 import { useCallback, useSyncExternalStore } from "react";
 import { themes, type ThemeName } from "@/theme/tokens";
+
+export type ThemeChoice = "auto" | ThemeName;
 
 const KEY = "oee-engine.theme";
 const EVENT = "oee-engine:theme";
 const SYSTEM_DARK = "(prefers-color-scheme: dark)";
 
-function stored(): ThemeName | null {
+let session: ThemeChoice | null = null; // the choice, when storage is blocked
+
+function readChoice(): ThemeChoice {
   try {
     const v = localStorage.getItem(KEY);
-    return v === "light" || v === "dark" ? v : null;
+    if (v === "light" || v === "dark" || v === "auto") return v;
   } catch {
-    return null; // private mode / storage blocked
+    /* private mode / storage blocked */
   }
+  return session ?? "auto";
 }
 
-let session: ThemeName | null = null; // the choice, when storage is blocked
-
-function read(): ThemeName {
-  return stored() ?? session ?? (window.matchMedia(SYSTEM_DARK).matches ? "dark" : "light");
+function activeTheme(): ThemeName {
+  const choice = readChoice();
+  if (choice !== "auto") return choice;
+  return window.matchMedia(SYSTEM_DARK).matches ? "dark" : "light";
 }
 
 /** Put the theme on <html> and tell the browser, so its bars and native pickers match. */
-function apply(theme: ThemeName) {
-  const root = document.documentElement;
-  root.dataset.theme = theme;
+function apply() {
+  const theme = activeTheme();
+  document.documentElement.dataset.theme = theme;
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themes[theme]["bg-canvas"]);
 }
 
 function subscribe(onChange: () => void) {
-  const system = window.matchMedia(SYSTEM_DARK);
   window.addEventListener(EVENT, onChange);
   window.addEventListener("storage", onChange);
-  system.addEventListener("change", onChange);
   return () => {
     window.removeEventListener(EVENT, onChange);
     window.removeEventListener("storage", onChange);
-    system.removeEventListener("change", onChange);
   };
 }
 
-/** Keeps <html> in sync for the whole session, including a system change while the app is open. */
+/** Keeps <html> in sync for the whole session, including the phone switching to dark while the app is open. */
 export function startTheme() {
-  apply(read());
-  subscribe(() => apply(read()));
+  apply();
+  subscribe(apply);
+  window.matchMedia(SYSTEM_DARK).addEventListener("change", apply);
 }
 
-/** [active theme, setTheme]. */
-export function useTheme(): [ThemeName, (theme: ThemeName) => void] {
-  const theme = useSyncExternalStore(subscribe, read, () => "light" as ThemeName);
-  const setTheme = useCallback((next: ThemeName) => {
+/** [auto | light | dark, setChoice]. */
+export function useThemeChoice(): [ThemeChoice, (choice: ThemeChoice) => void] {
+  const choice = useSyncExternalStore(subscribe, readChoice, () => "auto" as ThemeChoice);
+  const setChoice = useCallback((next: ThemeChoice) => {
     session = next;
     try {
       localStorage.setItem(KEY, next);
@@ -61,5 +64,5 @@ export function useTheme(): [ThemeName, (theme: ThemeName) => void] {
     }
     window.dispatchEvent(new Event(EVENT));
   }, []);
-  return [theme, setTheme];
+  return [choice, setChoice];
 }

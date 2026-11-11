@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Confidence, LineEvent, Loss, SimState, UpcomingStop } from "@/types/api";
-import { resourceState, useConnection, useEvents, useLosses, useSimClock, useSimControl, useSimState, useUpcoming, type Resource } from "@/api/hooks";
+import { resourceState, useConnection, useEvents, useLosses, useSimClock, useSimControl, useSimState, useUpcoming, useWhatIf, type Resource } from "@/api/hooks";
 import { Card, CardHeader } from "@/components/Card";
 import { Chip } from "@/components/Chip";
 import { CleanLineArt } from "@/components/CleanLineArt";
@@ -9,7 +9,7 @@ import { EventRow } from "@/components/EventRow";
 import { OeeRing } from "@/components/OeeRing";
 import { OeeSparkline } from "@/components/OeeSparkline";
 import { StateView } from "@/components/Panel";
-import { PieceGrid } from "@/components/PieceGrid";
+import { PieceGrid, PieceLegend } from "@/components/PieceGrid";
 import { ShiftStrip } from "@/components/ShiftStrip";
 import { SimSettings } from "@/components/SimSettings";
 import { AskAiButton } from "@/components/ask/AskAiButton";
@@ -170,20 +170,26 @@ function Kpis({ state, losses, onOpen }: { state: SimState; losses?: Loss[]; onO
             defect={shift.nok}
             columns={desktop ? 32 : 16}
           />
+          {desktop && <PieceLegend />}
         </Card>
-        <IfFixedFirst losses={losses} onOpen={onOpen} />
+        <IfFixedFirst losses={losses} to={shift.date} onOpen={onOpen} />
       </div>
+      {/* A half-width card on a phone is too narrow for one line, so the legend sits right under it. */}
+      {!desktop && <PieceLegend className="-mt-1 px-1" />}
     </>
   );
 }
 
 /** The OEE that comes back if the biggest stop so far is fixed first. */
-function IfFixedFirst({ losses, onOpen }: { losses?: Loss[]; onOpen: (code: string) => void }) {
+function IfFixedFirst({ losses, to, onOpen }: { losses?: Loss[]; to: string; onOpen: (code: string) => void }) {
   const t = useT();
   const top = useMemo(
     () => (losses ?? []).filter((l) => l.type === "downtime").sort((a, b) => b.loss_pcs - a.loss_pcs)[0],
     [losses],
   );
+  // Same what-if and period as the #1 card on Top errors, so the two gains on screen match.
+  const whatIf = useWhatIf(top?.code ?? null, { to });
+  const gain = whatIf.data;
   return (
     <Card padded={false} className="bg-status-fix-bg">
       <button
@@ -193,21 +199,23 @@ function IfFixedFirst({ losses, onOpen }: { losses?: Loss[]; onOpen: (code: stri
         className="flex h-full w-full flex-col justify-between gap-3 rounded-card p-card-pad text-left"
       >
         <span className="overline-label text-text-secondary">{t("kpi.ifFixed")}</span>
-        {top ? (
+        {top && gain ? (
           <>
             <span>
               <span className="flex items-center gap-2 text-status-fix">
                 <TrendingUp className="h-6 w-6 shrink-0" aria-hidden />
-                <span className="num text-num-l">+{top.loss_pp.toFixed(2)}</span>
+                <span className="num text-num-l">+{gain.gain_pp.toFixed(2)}</span>
               </span>
               <span className="mt-0.5 block text-caption text-text-secondary">{t("unit.pp")} OEE · {top.code}</span>
             </span>
             <Chip tone="fix" variant="surface" dot={false} className="w-fit">
-              {t("kpi.back", { n: pcs(Math.round(top.loss_pcs)) })}
+              {t("kpi.back", { n: pcs(Math.round(gain.gain_pcs)) })}
             </Chip>
           </>
+        ) : top && whatIf.loading ? (
+          <span className="h-16 animate-pulse rounded-badge bg-status-fix/10" aria-busy aria-label={t("panel.loading")} />
         ) : (
-          <span className="text-caption text-text-secondary">{t("kpi.noStops")}</span>
+          <span className="text-caption text-text-secondary">{t(top ? "kpi.noEstimate" : "kpi.noStops")}</span>
         )}
       </button>
     </Card>

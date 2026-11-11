@@ -9,7 +9,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         /** Main action: ink button, e.g. "Assign", "Create action". */
-        primary: "border-transparent bg-bg-ink text-white hover:bg-bg-ink/90",
+        primary: "border-transparent bg-action text-action-text hover:bg-action/90",
         /** Secondary control on a card. */
         default: "border-border bg-bg-card text-text-primary hover:bg-bg-subtle",
         /** Floating round control on the canvas, e.g. the Back button. */

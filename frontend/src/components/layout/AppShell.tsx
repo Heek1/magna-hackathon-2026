@@ -75,7 +75,7 @@ export function DesktopBoard({ now, errors, detail }: { now: ReactNode; errors: 
       <Column>{now}</Column>
       <Column>{errors}</Column>
       {detail && (
-        <aside aria-label="Error detail" className="min-h-0 overflow-y-auto rounded-hero bg-bg-card px-gutter shadow-card">
+        <aside aria-label="Error detail" className="scroll-thin min-h-0 overflow-y-auto rounded-hero bg-bg-card px-gutter shadow-card">
           {detail}
         </aside>
       )}
@@ -84,7 +84,7 @@ export function DesktopBoard({ now, errors, detail }: { now: ReactNode; errors: 
 }
 
 function Column({ children }: { children: ReactNode }) {
-  return <section className="min-h-0 overflow-y-auto px-2">{children}</section>;
+  return <section className="scroll-thin min-h-0 overflow-y-auto px-2">{children}</section>;
 }
 
 /** A screen owned by another member, or a placeholder while it is not built yet. */
