@@ -145,7 +145,7 @@ Team **ARVYDLiKuz**:
 | Member | Area | Branch |
 |---|---|---|
 | **Yuzevych Vladyslav** ([Heek1](https://github.com/Heek1)) — team lead | backend core, Top errors / Error detail / Fixes screens, deployment | `feat/backend-core` |
-| **Kuz Oleksandr** | detection engine, predictions, what-if, AI assistant | `feat/insights` |
+| **Kuz Oleksandr** ([Oleksandr7899](https://github.com/Oleksandr7899)) | detection engine, predictions, what-if, AI assistant | `feat/insights` |
 | **Lopatnov Daniil** ([daniillopatnev-cell](https://github.com/daniillopatnev-cell)) | frontend, design system, Now screen, themes, PWA | `feat/frontend-live` |
 | **Rykitsianski Artsem** ([keksarick](https://github.com/keksarick)) | countermeasure knowledge base, pitch | `feat/kb-analysis-qa` |
 
