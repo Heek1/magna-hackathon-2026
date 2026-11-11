@@ -216,9 +216,10 @@ def post_chat(body: ChatIn):
 
 @app.get("/api/chat/suggestions")
 def get_chat_suggestions(code: str | None = Query(None, max_length=32),
-                         role: str | None = Query(None, max_length=40)):
+                         role: str | None = Query(None, max_length=40),
+                         lang: str = Query("en", pattern="^(en|sk)$")):
     try:
-        return insights_bridge.chat_suggestions(sim.snapshot().as_frames(), code, role)
+        return insights_bridge.chat_suggestions(sim.snapshot().as_frames(), code, role, lang)
     except Exception as exc:  # no LLM key: the app hides "Ask AI"
         raise HTTPException(503, f"Chat unavailable: {exc}") from exc
 

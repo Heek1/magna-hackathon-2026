@@ -55,8 +55,9 @@ POST /api/chat       ← {question, history?: [{role: user|assistant, text}], co
                      → {answer, sources: [str], followups: [str]}  code = the error on screen,
                          role = the user's role; last 6 history turns are used; 503 without an
                          LLM key or when the LLM fails or times out (> 10 s), never 500
-GET  /api/chat/suggestions?code&role → [str]  3-4 starter questions; 503 without an LLM key
-                         (the app then hides "Ask AI")
+GET  /api/chat/suggestions?code&role&lang=en|sk → [str]  3-4 starter questions in that language;
+                         503 without an LLM key (the app then hides "Ask AI"). /api/chat answers in
+                         the language of the question (Slovak or English).
 GET  /api/report?date → {date, kpis, top_losses, insights, actions, summary}
 GET/POST /api/actions, PATCH /api/actions/{id}
                      → {id, insight_id, title, owner, status: open|in_progress|done, created_at}

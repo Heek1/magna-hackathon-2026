@@ -24,6 +24,7 @@ from .common import WEEKDAYS, normalize
 from . import engine as _engine
 from .engine import _load_countermeasures, get_insights
 from . import fallback
+from . import lang as _lang
 from .explain import explain
 from .upcoming import upcoming
 from .whatif import SPEED_COLUMNS, what_if
@@ -31,8 +32,12 @@ from .whatif import SPEED_COLUMNS, what_if
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 # 3.6 Flash with minimal thinking answered the demo questions in ~2 s; 3.5 Flash-Lite is the
 # fallback (its own quota) when the first is busy or slow.
-DEFAULT_MODEL = "gemini-3.6-flash"           # override with GEMINI_MODEL
-FALLBACK_MODEL = "gemini-3.5-flash-lite"     # override with GEMINI_FALLBACK_MODEL ("" = none)
+# Free tier: gemini-3.6-flash allows only 20 requests per day per project (seen in its 429), which
+# the warm-up alone uses up; 3.5 Flash-Lite answers the demo questions correctly in 1-3 s and has a
+# far larger daily allowance, so it goes first and 3.6 Flash is the fallback.
+DEFAULT_MODEL = "gemini-3.5-flash-lite"      # override with GEMINI_MODEL
+FALLBACK_MODEL = "gemini-3.6-flash"          # override with GEMINI_FALLBACK_MODEL ("" = none)
+KEY_ENV = ("GEMINI_API_KEY", "GEMINI_API_KEY_2")  # the second key is optional; use another project
 TIMEOUT_S = 7.0     # the whole LLM part, both models included; then an engine-data answer or 503.
                     # 7 s keeps the typing dots in the app under 8 s with the network and snapshot.
 HEDGE_S = 2.5       # the fallback starts alongside a primary that has not answered by then
@@ -62,10 +67,10 @@ SYSTEM = (
     "stops use their \"when\" label.\n"
     "6. Talk to the user as their assistant (\"you\"); never write as the user or as their role. If "
     "role is set and you name fixes, the ones owned by that role come first.\n"
-    "7. At most 60 words, plain text without markdown, in the language of the question.\n"
+    "7. At most 60 words, plain text without markdown, in the answer language named in the last message.\n"
     "Return JSON: answer; sources: 1-4 short labels in plain words (at most 5 words, no field names) "
     "of the snapshot facts you used, e.g. \"ST-038 · 4 stops\", \"OEE by weekday\", \"Gain if fixed\"; followups: 2-3 short next questions the user "
-    "could tap, in the language of the question, answerable from the snapshot."
+    "could tap, in the answer language, answerable from the snapshot."
 )
 
 RESPONSE_SCHEMA = {
@@ -92,6 +97,24 @@ if not log.handlers:  # uvicorn does not configure app loggers; timings must rea
 
 class ChatUnavailable(RuntimeError):
     """No LLM key, or the LLM failed or timed out; the API turns this into 503."""
+
+
+class QuotaExceeded(ChatUnavailable):
+    """HTTP 429 from the LLM: a rate limit of this key's project for this model."""
+
+    def __init__(self, message: str, quota: str = "", limit: str = "", retry_s: float = 0.0):
+        super().__init__(message)
+        self.quota, self.limit, self.retry_s = quota, limit, retry_s
+
+
+def _keys() -> list[str]:
+    """The configured keys in order: GEMINI_API_KEY, then GEMINI_API_KEY_2 if set."""
+    keys = []
+    for name in KEY_ENV:
+        value = os.environ.get(name, "").strip()
+        if value and value not in keys:
+            keys.append(value)
+    return keys
 
 
 def _key() -> str:
@@ -210,10 +233,14 @@ def _focus_code(ctx, data, code: str, fixes: dict) -> dict:
 
 
 def _asked_weekday(question: str) -> int | None:
-    words = re.findall(r"[a-z]+", question.lower())
+    """A weekday named in the question, English ("Wednesdays") or Slovak ("v stredu")."""
+    words = re.findall(r"[a-z]+", _lang.fold(question))
     for w in words:
         for name, n in WEEKDAY_WORDS.items():
             if w in (name, name + "s", name[:3]):
+                return n
+        for n, stem in enumerate(_lang.SK_DAY_STEMS):
+            if w.startswith(stem):
                 return n
     return None
 
@@ -347,12 +374,32 @@ def _http() -> httpx.Client:
         return _client
 
 
+def _quota_error(response) -> QuotaExceeded:
+    """The 429 body names the limit that was hit and when it resets."""
+    quota = limit = ""
+    retry_s = 0.0
+    try:
+        for detail in response.json().get("error", {}).get("details", []):
+            kind = detail.get("@type", "")
+            if kind.endswith("QuotaFailure"):
+                violation = (detail.get("violations") or [{}])[0]
+                quota, limit = violation.get("quotaId", ""), str(violation.get("quotaValue", ""))
+            elif kind.endswith("RetryInfo"):
+                retry_s = float(str(detail.get("retryDelay", "0")).rstrip("s") or 0)
+    except (ValueError, AttributeError, TypeError):
+        pass
+    text = f"LLM service returned HTTP 429 (quota {quota or 'unknown'}, limit {limit or '?'}"
+    return QuotaExceeded(text + (f", resets in {retry_s / 60:.0f} min)" if retry_s else ")"), quota, limit, retry_s)
+
+
 def _post(url: str, headers: dict, payload: bytes, timeout: float) -> dict:
-    """POST and return the JSON reply; ChatUnavailable on any HTTP or network failure."""
+    """POST and return the JSON reply; QuotaExceeded on 429, ChatUnavailable on any other failure."""
     try:
         response = _http().post(url, headers=headers, content=payload, timeout=timeout)
     except httpx.HTTPError as error:
         raise ChatUnavailable(f"LLM service did not answer ({type(error).__name__})") from error
+    if response.status_code == 429:
+        raise _quota_error(response)
     if response.status_code >= 400:
         raise ChatUnavailable(f"LLM service returned HTTP {response.status_code}")
     try:
@@ -361,19 +408,47 @@ def _post(url: str, headers: dict, payload: bytes, timeout: float) -> dict:
         raise ChatUnavailable("LLM service sent no JSON") from error
 
 
-def _request(model: str, key: str, body: bytes, timeout: float) -> tuple[str, str]:
-    try:
-        reply = _post(API_URL.format(model=model), {"Content-Type": "application/json", "x-goog-api-key": key},
-                      body, timeout)
-        parts = reply["candidates"][0]["content"]["parts"]
-    except ChatUnavailable as error:
-        raise ChatUnavailable(f"{model}: {error}") from error
-    except (KeyError, IndexError, TypeError) as error:
-        raise ChatUnavailable(f"{model}: unexpected LLM reply") from error
-    return "".join(part.get("text", "") for part in parts if not part.get("thought")), model
+# (model, key number) -> monotonic time until which its quota is known to be used up
+_exhausted: dict[tuple[str, int], float] = {}
+_exhausted_lock = threading.Lock()
+EXHAUSTED_MIN_S = 60  # a per-minute limit: try again soon; a daily one: skip until it resets
 
 
-def _call(key: str, body: bytes) -> tuple[str, str]:
+def _request(model: str, keys: list[str], body: bytes, timeout: float) -> tuple[str, str]:
+    """One model, each key in turn: a 429 on the first key is retried once with the second.
+    A key whose daily quota for this model is used up is skipped until it resets."""
+    deadline = time.monotonic() + timeout
+    last: ChatUnavailable | None = None
+    for number, key in enumerate(keys, start=1):
+        with _exhausted_lock:
+            until = _exhausted.get((model, number), 0)
+        if until > time.monotonic():
+            last = QuotaExceeded(f"{model}: key #{number} quota used up, skipped")
+            continue
+        left = deadline - time.monotonic()
+        if left <= 0.05:
+            break
+        try:
+            reply = _post(API_URL.format(model=model), {"Content-Type": "application/json", "x-goog-api-key": key},
+                          body, left)
+            parts = reply["candidates"][0]["content"]["parts"]
+            return "".join(part.get("text", "") for part in parts if not part.get("thought")), model
+        except QuotaExceeded as error:
+            log.warning("Gemini 429 QUOTA model=%s key=#%d quota=%s limit=%s resets_in=%.0f s%s", model, number,
+                        error.quota or "?", error.limit or "?", error.retry_s,
+                        " -> trying key #2" if number < len(keys) else "")
+            if error.retry_s >= EXHAUSTED_MIN_S:
+                with _exhausted_lock:
+                    _exhausted[(model, number)] = time.monotonic() + error.retry_s
+            last = QuotaExceeded(f"{model}: {error}", error.quota, error.limit, error.retry_s)
+        except ChatUnavailable as error:
+            raise ChatUnavailable(f"{model}: {error}") from error
+        except (KeyError, IndexError, TypeError) as error:
+            raise ChatUnavailable(f"{model}: unexpected LLM reply") from error
+    raise last or ChatUnavailable(f"{model}: no time left")
+
+
+def _call(keys: list[str], body: bytes) -> tuple[str, str]:
     """(text, model) of the first answer within TIMEOUT_S. The fallback model starts as soon as the
     primary fails, or runs alongside it once the primary has taken HEDGE_S without answering."""
     models = _models()
@@ -381,7 +456,7 @@ def _call(key: str, body: bytes) -> tuple[str, str]:
     pool = ThreadPoolExecutor(max_workers=len(models))
     errors: list[ChatUnavailable] = []
     try:
-        pending = {pool.submit(_request, models[0], key, body, TIMEOUT_S)}
+        pending = {pool.submit(_request, models[0], keys, body, TIMEOUT_S)}
         waiting = models[1:]
         while pending:
             left = deadline - time.monotonic()
@@ -395,7 +470,7 @@ def _call(key: str, body: bytes) -> tuple[str, str]:
                 except ChatUnavailable as error:
                     errors.append(error)
             if waiting and (not pending or not done):  # primary failed, or is slow
-                pending.add(pool.submit(_request, waiting.pop(0), key, body,
+                pending.add(pool.submit(_request, waiting.pop(0), keys, body,
                                         max(1.0, deadline - time.monotonic())))
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
@@ -432,7 +507,7 @@ _cache: dict[str, tuple[float, dict]] = {}
 _cache_lock = threading.Lock()
 
 
-def _cache_key(question: str, code, role, history: list[dict], data) -> str:
+def _cache_key(question: str, code, role, history: list[dict], data, lang: str = _lang.EN) -> str:
     """Same question, error, role, history and simulated day → same answer. A stop that starts
     today changes the key too, so an answer never misses a stop that has happened since."""
     ctx_time = data["hours"].attrs.get("sim_time")
@@ -444,7 +519,7 @@ def _cache_key(question: str, code, role, history: list[dict], data) -> str:
         moment = f"{day} stops={int(ids.str.contains(f'-{day}-').sum())}"
     text = " ".join(re.findall(r"\w+", question.lower()))
     turns = json.dumps(history, sort_keys=True, ensure_ascii=False)
-    raw = json.dumps([text, code or "", role or "", moment, turns], ensure_ascii=False)
+    raw = json.dumps([lang, text, code or "", role or "", moment, turns], ensure_ascii=False)
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 
@@ -469,6 +544,8 @@ def _cache_put(key: str, value: dict) -> None:
 def clear_cache() -> None:
     with _cache_lock:
         _cache.clear()
+    with _exhausted_lock:
+        _exhausted.clear()
     with _base_lock:
         _base_cache.clear()
 
@@ -492,8 +569,9 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
     if not question:  # nothing to ask: no LLM call, just the starters
         return {"answer": "", "sources": [], "followups": suggestions(data, code, role)[:MAX_FOLLOWUPS]}
 
+    lang = _lang.detect(question)
     turns = _history(history)
-    cache_key = _cache_key(question, code, role, turns, data)
+    cache_key = _cache_key(question, code, role, turns, data, lang)
     cached = _cache_get(cache_key)
     if cached is None and not _warming_up:
         cached = _wait_for_warm_up(cache_key)
@@ -507,7 +585,8 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
     built = time.perf_counter()
     contents = [{"role": "model" if t["role"] == "assistant" else "user", "parts": [{"text": t["text"]}]}
                 for t in turns]
-    contents.append({"role": "user", "parts": [{"text": f"Snapshot:\n{snapshot}\n\nQuestion: {question}"}]})
+    contents.append({"role": "user", "parts": [
+        {"text": f"{_lang.INSTRUCTION[lang]}\n\nSnapshot:\n{snapshot}\n\nQuestion: {question}"}]})
     body = json.dumps({
         "system_instruction": {"parts": [{"text": SYSTEM}]},
         "contents": contents,
@@ -516,13 +595,13 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
                              "responseMimeType": "application/json", "responseSchema": RESPONSE_SCHEMA},
     }).encode("utf-8")
     try:
-        text, model = _call(key, body)
+        text, model = _call(_keys(), body)
         result = _parse(text)
         if not result["answer"]:
             raise ChatUnavailable(f"{model}: empty answer")
     except ChatUnavailable as error:
         # The LLM failed or took too long: answer from our own data when the question allows it.
-        backup = fallback.answer(question, snap, code, role, suggestions(data, code, role))
+        backup = fallback.answer(question, snap, code, role, suggestions(data, code, role, lang), lang)
         log.warning("chat llm failed after %d ms (%s); %s", (time.perf_counter() - built) * 1000, error,
                     "answered from engine data" if backup else "no engine answer, 503")
         if backup is None:
@@ -532,22 +611,24 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
         answered = time.perf_counter()
         log.info("chat snapshot=%d ms (%d chars) llm=%d ms q=%r code=%s", (built - started) * 1000,
                  len(snapshot), (answered - built) * 1000, question[:60], code)
-    log.info("chat answered by %s", model)
+    log.info("chat answered by %s in %s", model, lang)
     unknown = unverified_numbers(result["answer"], snapshot + " " + question)
     if unknown:
         log.warning("chat numbers not in the snapshot %s q=%r answer=%r", unknown, question[:60],
                     result["answer"][:200])
     if not result["followups"]:
-        result["followups"] = [q for q in suggestions(data, code, role) if q != question][:MAX_FOLLOWUPS]
+        result["followups"] = [q for q in suggestions(data, code, role, lang) if q != question][:MAX_FOLLOWUPS]
     _cache_put(cache_key, result)
     return result
 
 
 # ---------- starter questions and warm-up ----------
 
-def suggestions(data, code: str | None = None, role: str | None = None) -> list[str]:
-    """3-4 starter questions for the screen (code = Error detail) and the user's role."""
+def suggestions(data, code: str | None = None, role: str | None = None, lang: str = _lang.EN) -> list[str]:
+    """3-4 starter questions for the screen (code = Error detail), the user's role and the language."""
     _key()
+    if lang == _lang.SK:
+        return _suggestions_sk(data, code, role)
     who = role or "we"
     if code:
         out = [f"Why does {code} happen?", f"How much do we gain if we fix {code}?"]
@@ -565,6 +646,27 @@ def suggestions(data, code: str | None = None, role: str | None = None) -> list[
     out.append(f"What should {who} prepare for tomorrow?")
     out.append("Which error costs us the most?")
     out.append("How is today's shift going?")
+    return out[:4]
+
+
+def _suggestions_sk(data, code: str | None, role: str | None) -> list[str]:
+    """The same starters in Slovak, with diacritics."""
+    who = _lang.SK_ROLES.get(role or "")
+    if code:
+        out = [f"Prečo vzniká {code}?", f"Koľko získame, ak opravíme {code}?"]
+        if any(u["code"] == code for u in upcoming(data)):
+            out.append(f"Kedy sa {code} očakáva najbližšie?")
+        out.append(f"Ako má {who} riešiť {code}?" if who else f"Ako máme riešiť {code}?")
+        return out[:4]
+    ctx = normalize(data)
+    out = []
+    if not ctx.hours.empty and ctx.hours["date"].nunique() >= 5:
+        worst = min(_by_weekday(ctx), key=lambda d: d["oee_pct"])
+        n = [w[:3] for w in WEEKDAYS].index(worst["day"])
+        out.append(f"Prečo je OEE {_lang.SK_DAY_ON[n]} nízke?")
+    out.append(f"Čo má {who} pripraviť na zajtra?" if who else "Čo máme pripraviť na zajtra?")
+    out.append("Ktorá chyba nás stojí najviac?")
+    out.append("Ako ide dnešná zmena?")
     return out[:4]
 
 
@@ -590,12 +692,13 @@ def _wait_for_warm_up(key: str) -> dict | None:
 WARM_CODE_QUESTIONS = 2  # on Error detail: "Why does X happen?" and "How much do we gain if we fix X?"
 
 
-def warm_up(data, role: str | None = None, actions: list[dict] | None = None, code: str | None = None) -> int:
+def warm_up(data, role: str | None = None, actions: list[dict] | None = None, code: str | None = None,
+            lang: str = _lang.EN) -> int:
     """Answer the starter questions of a screen in the background, one at a time, so tapping one is
     instant: the Now screen's four, or the first two of Error detail for `code`. Returns how many
     were queued. Does nothing without a key."""
     try:
-        questions = suggestions(data, code, role)
+        questions = suggestions(data, code, role, lang)
     except ChatUnavailable:
         return 0
     if code:
@@ -604,7 +707,7 @@ def warm_up(data, role: str | None = None, actions: list[dict] | None = None, co
         return 0
     queued = 0
     for question in questions:
-        key = _cache_key(question, code, role, [], data)
+        key = _cache_key(question, code, role, [], data, _lang.detect(question))
         with _warm_lock:
             if key in _warming or _cache_get(key) is not None:
                 continue

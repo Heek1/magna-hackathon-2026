@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import { ArrowUp, RotateCcw, Sparkles, X } from "lucide-react";
-import { askAi, type ChatTurn } from "@/api/chat";
+import { askAi, type AskLang, type ChatTurn } from "@/api/chat";
 import { errorText } from "@/api/client";
 import { Card } from "@/components/Card";
 import { Chip } from "@/components/Chip";
@@ -23,6 +23,9 @@ export interface AskSheetProps {
   code?: string | null;
   role: string | null;
   suggestions: string[];
+  /** Language of the starter questions (the rest of the sheet stays in the app's language). */
+  lang: AskLang;
+  onLangChange: (lang: AskLang) => void;
   /** The conversation lives in the trigger, so closing and reopening keeps it. */
   messages: AskMessage[];
   setMessages: (update: (prev: AskMessage[]) => AskMessage[]) => void;
@@ -36,7 +39,7 @@ function history(messages: AskMessage[]): ChatTurn[] {
 }
 
 /** "Ask AI" bottom sheet: starter questions, the conversation, a text field. */
-export function AskSheet({ onClose, code, role, suggestions, messages, setMessages }: AskSheetProps) {
+export function AskSheet({ onClose, code, role, suggestions, lang, onLangChange, messages, setMessages }: AskSheetProps) {
   const t = useT();
   useBackToClose(onClose);
   const [draft, setDraft] = useState("");
@@ -134,7 +137,7 @@ export function AskSheet({ onClose, code, role, suggestions, messages, setMessag
 
         <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-gutter py-4" aria-live="polite">
           {messages.length === 0 && !busy ? (
-            <Starters suggestions={suggestions} role={role} onPick={ask} />
+            <Starters suggestions={suggestions} role={role} onPick={ask} lang={lang} onLangChange={onLangChange} />
           ) : (
             <div className="flex flex-col gap-3">
               {messages.map((m, i) => {
@@ -181,7 +184,19 @@ export function AskSheet({ onClose, code, role, suggestions, messages, setMessag
   );
 }
 
-function Starters({ suggestions, role, onPick }: { suggestions: string[]; role: string | null; onPick: (q: string) => void }) {
+function Starters({
+  suggestions,
+  role,
+  onPick,
+  lang,
+  onLangChange,
+}: {
+  suggestions: string[];
+  role: string | null;
+  onPick: (q: string) => void;
+  lang: AskLang;
+  onLangChange: (lang: AskLang) => void;
+}) {
   const t = useT();
   return (
     <div className="flex flex-col gap-3">
@@ -191,7 +206,10 @@ function Starters({ suggestions, role, onPick }: { suggestions: string[]; role: 
       </p>
       {suggestions.length > 0 && (
         <>
-          <span className="overline-label mt-1">{t("ask.try")}</span>
+          <div className="mt-1 flex items-center justify-between">
+            <span className="overline-label">{t("ask.try")}</span>
+            <LangToggle value={lang} onChange={onLangChange} />
+          </div>
           <div className="flex flex-col items-start gap-2">
             {suggestions.map((q) => (
               <QuestionChip key={q} text={q} onClick={() => onPick(q)} />
@@ -199,6 +217,29 @@ function Starters({ suggestions, role, onPick }: { suggestions: string[]; role: 
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** EN | SK for the starter questions. Any question can be typed in either language. */
+function LangToggle({ value, onChange }: { value: AskLang; onChange: (lang: AskLang) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Language of the suggested questions" className="flex rounded-chip bg-border p-0.5">
+      {(["en", "sk"] as const).map((l) => (
+        <button
+          key={l}
+          type="button"
+          role="radio"
+          aria-checked={value === l}
+          onClick={() => onChange(l)}
+          className={cn(
+            "h-7 min-w-[40px] rounded-chip px-2.5 text-caption font-semibold uppercase transition-colors",
+            value === l ? "bg-bg-card text-text-primary shadow-card" : "text-text-secondary hover:text-text-primary",
+          )}
+        >
+          {l}
+        </button>
+      ))}
     </div>
   );
 }
