@@ -874,3 +874,44 @@ def test_api_answers_from_engine_data_and_503_only_when_both_fail(ds, monkeypatc
     assert r.json()["sources"] == ["Engine data"]
     assert client.post("/api/chat", json={"question": "Tell me a joke"}).status_code == 503
 
+
+
+# ---------- Ask AI speed on a small CPU: shared snapshot part, Error detail warm-up ----------
+
+def test_snapshot_shares_the_costly_part_between_questions(ds, llm, monkeypatch):
+    calls = []
+    real = chat_module.get_insights
+    monkeypatch.setattr(chat_module, "get_insights", lambda data: calls.append(1) or real(data))
+    frames = at(ds, "2026-11-25 09:20")
+    for question in STARTERS:
+        build_snapshot(frames, None, "Maintenance", [], question)
+    build_snapshot(at(ds, "2026-11-25 09:22"), "ST-038")  # same 5-minute slot
+    assert len(calls) == 1
+    build_snapshot(at(ds, "2026-11-25 09:30"))  # the next slot is computed again
+    assert len(calls) == 2
+
+
+def test_warm_up_on_error_detail_answers_why_and_gain(ds, llm):
+    frames = at(ds, "2026-11-25 09:20")
+    assert chat_module.warm_up(frames, "Maintenance", code="ST-038") == 2
+    chat_module._warm_pool.submit(lambda: None).result(timeout=10)
+    assert len(llm.calls) == 2 and all(c["body"]["contents"][-1]["parts"][0]["text"].count('"focus":{"code":"ST-038"') == 1
+                                      for c in llm.calls)
+    chat("How much do we gain if we fix ST-038?", frames, code="ST-038", role="Maintenance")
+    chat("Why does ST-038 happen?", frames, code="ST-038", role="Maintenance")
+    assert len(llm.calls) == 2  # both from the cache
+
+
+def test_api_suggestions_warm_up_the_screen(ds, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import insights_bridge
+    from app.main import app
+
+    warmed = []
+    monkeypatch.setattr(insights_bridge, "_warm_up", lambda data, role, code=None: warmed.append((role, code)))
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    client = TestClient(app)
+    client.get("/api/chat/suggestions", params={"role": "Maintenance"})
+    client.get("/api/chat/suggestions", params={"role": "Maintenance", "code": "ST-038"})
+    assert warmed == [("Maintenance", None), ("Maintenance", "ST-038")]
