@@ -909,7 +909,8 @@ def test_api_suggestions_warm_up_the_screen(ds, monkeypatch):
     from app.main import app
 
     warmed = []
-    monkeypatch.setattr(insights_bridge, "_warm_up", lambda data, role, code=None: warmed.append((role, code)))
+    monkeypatch.setattr(insights_bridge, "_warm_up",
+                        lambda data, role, code=None, lang="en": warmed.append((role, code)))
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     client = TestClient(app)
     client.get("/api/chat/suggestions", params={"role": "Maintenance"})
@@ -1043,3 +1044,32 @@ def test_slovak_question_falls_back_in_slovak(ds, llm):
     result = chat("Čo má údržba pripraviť na zajtra?", at(ds, "2026-11-25 09:20"), role="Maintenance")
     assert result["answer"].startswith("Zajtra o 08:08: ST-047") and result["sources"] == ["Dáta systému"]
     assert result["followups"] == ["Prečo je OEE v stredu nízke?", "Ktorá chyba nás stojí najviac?", "Ako ide dnešná zmena?"]
+
+
+def test_api_suggestions_in_slovak_warm_up_slovak(ds, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import insights_bridge
+    from app.main import app
+
+    warmed = []
+    monkeypatch.setattr(insights_bridge, "_warm_up",
+                        lambda data, role, code=None, lang="en": warmed.append((role, code, lang)))
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    client = TestClient(app)
+    client.post("/api/sim/control", json={"paused": True, "jump_to": "2026-11-25T09:20:00"})
+    r = client.get("/api/chat/suggestions", params={"role": "Maintenance", "lang": "sk"})
+    assert r.status_code == 200 and r.json() == SK_STARTERS
+    assert client.get("/api/chat/suggestions", params={"lang": "de"}).status_code == 422
+    assert warmed == [("Maintenance", None, "sk")]
+
+
+def test_warm_up_in_slovak(ds, llm):
+    frames = at(ds, "2026-11-25 09:20")
+    assert chat_module.warm_up(frames, "Maintenance", lang="sk") == 4
+    chat_module._warm_pool.submit(lambda: None).result(timeout=10)
+    assert all(c["body"]["contents"][-1]["parts"][0]["text"].startswith("Answer language: Slovak") for c in llm.calls)
+    for question in SK_STARTERS:
+        chat(question, frames, role="Maintenance")
+    assert len(llm.calls) == 4  # all from the cache
+

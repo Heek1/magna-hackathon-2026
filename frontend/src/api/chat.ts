@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 import { ApiError, api, qs } from "@/api/client";
 import { useSimState } from "@/api/hooks";
 
+/** Language of the starter questions; answers follow the language of each question. */
+export type AskLang = "en" | "sk";
+
 export interface ChatTurn {
   role: "user" | "assistant";
   text: string;
@@ -64,11 +67,11 @@ export interface ChatSuggestions {
 // A 503 (no LLM key) is remembered; any other failure is tried again the next time a screen asks.
 const cache = new Map<string, Promise<string[] | null>>();
 
-function loadSuggestions(code: string | null, role: string | null, day: string): Promise<string[] | null> {
-  const key = `${code ?? ""}|${role ?? ""}|${day}`;
+function loadSuggestions(code: string | null, role: string | null, day: string, lang: AskLang): Promise<string[] | null> {
+  const key = `${code ?? ""}|${role ?? ""}|${day}|${lang}`;
   let request = cache.get(key);
   if (!request) {
-    request = api<string[]>(`/chat/suggestions${qs({ code, role })}`).catch((e) => {
+    request = api<string[]>(`/chat/suggestions${qs({ code, role, lang })}`).catch((e) => {
       if (!(e instanceof ApiError && e.status === 503)) cache.delete(key);
       return null;
     });
@@ -77,19 +80,26 @@ function loadSuggestions(code: string | null, role: string | null, day: string):
   return request;
 }
 
-/** Starter questions for this screen and role; `available: false` hides the feature. */
-export function useChatSuggestions(code: string | null = null, role: string | null = null): ChatSuggestions {
+/**
+ * Starter questions for this screen, role and language; `available: false` hides the feature.
+ * Asking for them also makes the backend answer them in the background.
+ */
+export function useChatSuggestions(
+  code: string | null = null,
+  role: string | null = null,
+  lang: AskLang = "en",
+): ChatSuggestions {
   const [state, setState] = useState<ChatSuggestions>({ available: null, suggestions: [] });
   const day = useSimState().data?.shift.date ?? "";
   useEffect(() => {
     let alive = true;
-    loadSuggestions(code, role, day).then((list) => {
+    loadSuggestions(code, role, day, lang).then((list) => {
       // Keep what is shown while a new day loads; only a definite answer changes it.
       if (alive) setState(list ? { available: true, suggestions: list } : { available: false, suggestions: [] });
     });
     return () => {
       alive = false;
     };
-  }, [code, role, day]);
+  }, [code, role, day, lang]);
   return state;
 }

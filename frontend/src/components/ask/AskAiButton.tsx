@@ -1,11 +1,21 @@
 import { useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
-import { useChatSuggestions } from "@/api/chat";
+import { useChatSuggestions, type AskLang } from "@/api/chat";
 import { Button } from "@/components/ui/button";
 import { useRole } from "@/lib/role";
 import { cn } from "@/lib/utils";
 import { AiIcon, AskSheet, type AskMessage } from "./AskSheet";
+
+const LANG_KEY = "oee-engine.ask-lang";
+
+function readLang(): AskLang {
+  try {
+    return localStorage.getItem(LANG_KEY) === "sk" ? "sk" : "en";
+  } catch {
+    return "en";
+  }
+}
 
 export interface AskAiButtonProps {
   /** The error on screen; on Error detail the button reads "Ask about {code}". */
@@ -21,7 +31,18 @@ export interface AskAiButtonProps {
  */
 export function AskAiButton({ code = null, variant = "icon", className }: AskAiButtonProps) {
   const [role] = useRole();
-  const { available, suggestions } = useChatSuggestions(code, role);
+  const { available, suggestions } = useChatSuggestions(code, role, "en");
+  // Asked for both languages up front, so the Slovak starters are answered (warmed up) too.
+  const slovak = useChatSuggestions(code, role, "sk");
+  const [lang, setLangState] = useState<AskLang>(readLang);
+  const setLang = useCallback((next: AskLang) => {
+    setLangState(next);
+    try {
+      localStorage.setItem(LANG_KEY, next);
+    } catch {
+      /* storage blocked: the choice lasts for this page only */
+    }
+  }, []);
   const [open, setOpen] = useState(false);
   const [messages, setMessagesState] = useState<AskMessage[]>([]);
   const setMessages = useCallback((update: (prev: AskMessage[]) => AskMessage[]) => setMessagesState(update), []);
@@ -64,7 +85,9 @@ export function AskAiButton({ code = null, variant = "icon", className }: AskAiB
               onClose={close}
               code={code}
               role={role}
-              suggestions={suggestions}
+              suggestions={lang === "sk" && slovak.suggestions.length ? slovak.suggestions : suggestions}
+            lang={lang}
+            onLangChange={setLang}
               messages={messages}
               setMessages={setMessages}
             />

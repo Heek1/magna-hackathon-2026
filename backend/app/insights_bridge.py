@@ -4,7 +4,7 @@ Expected interface in backend/insights/__init__.py:
     get_insights(data) -> list[dict]                      # /api/insights items
     what_if(data, remove, from_, to) -> dict              # {oee_before, oee_after, gain_pcs, gain_pp}
     chat(question, data, history, code, role, actions) -> {answer, sources, followups}
-    suggestions(data, code, role) -> [str]                # both raise without GEMINI_API_KEY → 503
+    suggestions(data, code, role, lang) -> [str]          # both raise without GEMINI_API_KEY → 503
     warm_up(data, role)                                   # starter answers into the cache, in the background
 where `data` = {"hours": df, "downtime": df, "nok": df}, trimmed to sim_time
 (original xlsx column names; df.attrs["sim_time"] holds the current simulation time).
@@ -89,19 +89,19 @@ def answer(question: str, data: dict, history: list[dict] | None = None, code: s
     return chat(question, data, history=history, code=code, role=role, actions=actions)
 
 
-def chat_suggestions(data: dict, code: str | None = None, role: str | None = None) -> list[str]:
+def chat_suggestions(data: dict, code: str | None = None, role: str | None = None, lang: str = "en") -> list[str]:
     """Starter questions; raises when the LLM is not available, so the app hides "Ask AI"."""
     if _suggestions is None:
         raise ChatUnavailable("suggestions() is not implemented yet")
-    questions = _suggestions(data, code, role)
-    warm_chat(data, role, code)  # the screen shows these now: answer them in the background
+    questions = _suggestions(data, code, role, lang)
+    warm_chat(data, role, code, lang)  # the screen shows these now: answer them in the background
     return questions
 
 
-def warm_chat(data: dict, role: str | None = None, code: str | None = None) -> None:
+def warm_chat(data: dict, role: str | None = None, code: str | None = None, lang: str = "en") -> None:
     """Precompute the starter answers of a screen in the background (no-op without a key)."""
     if _warm_up is not None:
         try:
-            _warm_up(data, role, code=code)
+            _warm_up(data, role, code=code, lang=lang)
         except Exception:  # warming is an optimisation only
             pass
