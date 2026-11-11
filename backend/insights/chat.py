@@ -43,18 +43,25 @@ MAX_FOLLOWUPS = 3
 
 SYSTEM = (
     "You are the AI assistant of the OEE Improvement Engine for an electric drive assembly line "
-    "(10 stations, ideal cycle 60 s, shift 06:00-14:00, OEE target 85 %). Answer only from the JSON "
-    "snapshot in the last message. Quote numbers, codes and dates exactly as the snapshot gives them "
-    "and do not calculate new ones: for gains use the gains entries. If the snapshot does not "
-    "contain the answer, say so. 1 lost piece = 1 planned minute; pp = OEE percentage points; "
-    "*_pct values are percentages.\n"
-    "Answer the question first. Speak to the user as their assistant; never write as the user or "
-    "as their role (no \"As Maintenance, I\"). If role is set, when you name fixes, name the ones "
-    "owned by that role first. If focus is set, the question is about it unless it says otherwise. "
-    "For upcoming stops use their \"when\" label.\n"
-    "At most 60 words, plain text without markdown. Answer in the language of the question.\n"
-    "Return JSON: answer; sources: 1-4 short labels (at most 5 words) of the snapshot facts you used, "
-    "e.g. \"ST-038 · 4 stops\", \"OEE by weekday\"; followups: 2-3 short next questions the user "
+    "(10 stations, ideal cycle 60 s, shift 06:00-14:00, OEE target 85 %). The last message holds a "
+    "JSON snapshot of the line data and one question.\n"
+    "Rules:\n"
+    "1. Answer ONLY the question asked, from the snapshot only. If focus is set, the question is "
+    "about it unless it says otherwise.\n"
+    "2. Every number must be copied from the snapshot as written (percentages, minutes, pieces, pp, "
+    "times, dates). Never calculate, round or estimate a new number; for gains use the gains or "
+    "gain_if_fixed entries.\n"
+    "3. Mention a countermeasure only for the codes your answer is about. Never add fixes, codes or "
+    "facts the question did not ask about.\n"
+    "4. If the snapshot does not answer the question, say what the data shows and stop.\n"
+    "5. Write plain words with units (\"121 min of downtime\", \"87 pcs\", \"81.9 %\"), never the "
+    "JSON field names. 1 lost piece = 1 planned minute; pp = OEE percentage points. For upcoming "
+    "stops use their \"when\" label.\n"
+    "6. Talk to the user as their assistant (\"you\"); never write as the user or as their role. If "
+    "role is set and you name fixes, the ones owned by that role come first.\n"
+    "7. At most 60 words, plain text without markdown, in the language of the question.\n"
+    "Return JSON: answer; sources: 1-4 short labels in plain words (at most 5 words, no field names) "
+    "of the snapshot facts you used, e.g. \"ST-038 · 4 stops\", \"OEE by weekday\", \"Gain if fixed\"; followups: 2-3 short next questions the user "
     "could tap, in the language of the question, answerable from the snapshot."
 )
 
@@ -359,6 +366,30 @@ def _call(key: str, body: bytes) -> tuple[str, str]:
     raise errors[-1] if errors else ChatUnavailable(f"LLM did not answer within {TIMEOUT_S:g} s")
 
 
+# ---------- number check ----------
+
+_NUMBER = re.compile(r"(?<![\w.])\d+(?:[.,]\d+)?")
+_CODE = re.compile(r"\b[A-Za-z]+[-_]\d+\b")  # ST-038, Q-031, slow_hour_1: names, not numbers
+
+
+def _numbers(text: str) -> set[str]:
+    """Numbers in a text, normalised: "87.0" and "87" are the same, "1,04" is "1.04", "09" is "9"."""
+    out = set()
+    for raw in _NUMBER.findall(_CODE.sub(" ", text)):
+        value = raw.replace(",", ".")
+        if "." in value:
+            value = value.rstrip("0").rstrip(".")
+        out.add(value.lstrip("0") or "0")
+    return out
+
+
+def unverified_numbers(answer: str, source: str) -> list[str]:
+    """Numbers in the answer that do not appear in the snapshot (or the question). Small counts
+    (0-10) are allowed, they also come from words such as "two" or "4 of 4"."""
+    allowed = _numbers(source)
+    return sorted(n for n in _numbers(answer) - allowed if not (n.isdigit() and int(n) <= 10))
+
+
 # ---------- cache ----------
 
 _cache: dict[str, tuple[float, dict]] = {}
@@ -454,6 +485,10 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
     log.info("chat answered by %s", model)
     if not result["answer"]:
         raise ChatUnavailable("LLM returned an empty answer")
+    unknown = unverified_numbers(result["answer"], snapshot + " " + question)
+    if unknown:
+        log.warning("chat numbers not in the snapshot %s q=%r answer=%r", unknown, question[:60],
+                    result["answer"][:200])
     if not result["followups"]:
         result["followups"] = [q for q in suggestions(data, code, role) if q != question][:MAX_FOLLOWUPS]
     _cache_put(cache_key, result)

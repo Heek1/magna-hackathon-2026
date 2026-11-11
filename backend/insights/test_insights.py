@@ -490,7 +490,7 @@ def test_chat_returns_answer_sources_followups(ds, llm):
     config = call["body"]["generationConfig"]
     assert config["responseMimeType"] == "application/json" and config["maxOutputTokens"] <= 256
     assert config["thinkingConfig"] == {"thinkingLevel": "minimal"}
-    assert "only from the JSON" in call["body"]["system_instruction"]["parts"][0]["text"]
+    assert "from the snapshot only" in call["body"]["system_instruction"]["parts"][0]["text"]
     assert llm.prompt.endswith("Question: Why is OEE low on Wednesdays?")
 
 
@@ -722,3 +722,58 @@ def test_api_chat_routes(ds, monkeypatch):
     fake.text = BUSY  # both models busy: 503, never 500
     assert client.post("/api/chat", json={"question": "Busy?"}).status_code == 503
     chat_module.clear_cache()
+
+
+# ---------- Ask AI accuracy: numbers come from the snapshot ----------
+
+def test_unverified_numbers():
+    source = '{"oee_pct":81.9,"downtime_min":121.0,"gain_pp":1.04,"every":"Wed 09:08","loss_pcs":87.0,"now":"2026-11-25 Wed 09:20"}'
+    ok = "Wednesday OEE is 81.9 % with 121 min of downtime: ST-038 stops every Wed at 09:08 (4 of 4 weeks), 87 pcs, +1.04 pp."
+    assert chat_module.unverified_numbers(ok, source) == []
+    assert chat_module.unverified_numbers("On 2026-11-25 at 09:20, slow_hour_1 and Q-031.", source) == []
+    bad = "OEE is 82.4 %, fixing it gives +1.1 pp and 92 pcs."
+    assert chat_module.unverified_numbers(bad, source) == ["1.1", "82.4", "92"]
+
+
+def test_chat_logs_numbers_that_are_not_in_the_snapshot(ds, llm, caplog):
+    import logging
+    llm.text = json.dumps({"answer": "Wednesday OEE is 81.9 %; fixing ST-038 gives +7.77 pp.", "sources": [],
+                           "followups": []})
+    with caplog.at_level(logging.WARNING, logger="oee.chat"):
+        chat_module.log.propagate = True
+        try:
+            chat("Why is OEE low on Wednesdays?", at(ds, "2026-11-25 09:20"))
+        finally:
+            chat_module.log.propagate = False
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1 and "['7.77']" in warnings[0]  # 81.9 is in the snapshot, 7.77 is not
+
+
+def test_chat_prompt_rules(ds, llm):
+    chat("Why is OEE low on Wednesdays?", at(ds, "2026-11-25 09:20"), role="Maintenance")
+    system = llm.calls[0]["body"]["system_instruction"]["parts"][0]["text"]
+    for rule in ("Answer ONLY the question asked", "Mention a countermeasure only for the codes",
+                 "Never add fixes, codes or facts", "say what the data shows and stop",
+                 "never the JSON field names", "never write as the user or as their role"):
+        assert rule in system
+    # the Wednesday snapshot carries no other code's fix in its focus
+    focus = json.dumps(llm.snapshot["focus"])
+    assert "ST-038" in focus and not any(c in focus for c in ("ST-047", "Q-026", "Q-020", "ST-001"))
+
+
+def test_api_chat_times_out_with_503(ds, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import insights_bridge
+    from app.main import app
+
+    monkeypatch.setattr(insights_bridge, "_warm_up", None)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(chat_module, "TIMEOUT_S", 0.4)
+    monkeypatch.setattr(chat_module, "HEDGE_S", 0.1)
+    chat_module.clear_cache()
+    monkeypatch.setattr(chat_module, "_post", FakeLLM(REPLY, delays={"gemini-3.6-flash": 2, "gemini-3.5-flash-lite": 2}))
+    client = TestClient(app)
+    client.post("/api/sim/control", json={"paused": True, "jump_to": "2026-11-25T09:20:00"})
+    r = client.post("/api/chat", json={"question": "Slow?"})
+    assert r.status_code == 503 and "within" in r.json()["detail"]
