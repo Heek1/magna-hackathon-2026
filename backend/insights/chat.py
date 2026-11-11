@@ -24,6 +24,7 @@ from .common import WEEKDAYS, normalize
 from . import engine as _engine
 from .engine import _load_countermeasures, get_insights
 from . import fallback
+from . import lang as _lang
 from .explain import explain
 from .upcoming import upcoming
 from .whatif import SPEED_COLUMNS, what_if
@@ -62,10 +63,10 @@ SYSTEM = (
     "stops use their \"when\" label.\n"
     "6. Talk to the user as their assistant (\"you\"); never write as the user or as their role. If "
     "role is set and you name fixes, the ones owned by that role come first.\n"
-    "7. At most 60 words, plain text without markdown, in the language of the question.\n"
+    "7. At most 60 words, plain text without markdown, in the answer language named in the last message.\n"
     "Return JSON: answer; sources: 1-4 short labels in plain words (at most 5 words, no field names) "
     "of the snapshot facts you used, e.g. \"ST-038 · 4 stops\", \"OEE by weekday\", \"Gain if fixed\"; followups: 2-3 short next questions the user "
-    "could tap, in the language of the question, answerable from the snapshot."
+    "could tap, in the answer language, answerable from the snapshot."
 )
 
 RESPONSE_SCHEMA = {
@@ -210,10 +211,14 @@ def _focus_code(ctx, data, code: str, fixes: dict) -> dict:
 
 
 def _asked_weekday(question: str) -> int | None:
-    words = re.findall(r"[a-z]+", question.lower())
+    """A weekday named in the question, English ("Wednesdays") or Slovak ("v stredu")."""
+    words = re.findall(r"[a-z]+", _lang.fold(question))
     for w in words:
         for name, n in WEEKDAY_WORDS.items():
             if w in (name, name + "s", name[:3]):
+                return n
+        for n, stem in enumerate(_lang.SK_DAY_STEMS):
+            if w.startswith(stem):
                 return n
     return None
 
@@ -432,7 +437,7 @@ _cache: dict[str, tuple[float, dict]] = {}
 _cache_lock = threading.Lock()
 
 
-def _cache_key(question: str, code, role, history: list[dict], data) -> str:
+def _cache_key(question: str, code, role, history: list[dict], data, lang: str = _lang.EN) -> str:
     """Same question, error, role, history and simulated day → same answer. A stop that starts
     today changes the key too, so an answer never misses a stop that has happened since."""
     ctx_time = data["hours"].attrs.get("sim_time")
@@ -444,7 +449,7 @@ def _cache_key(question: str, code, role, history: list[dict], data) -> str:
         moment = f"{day} stops={int(ids.str.contains(f'-{day}-').sum())}"
     text = " ".join(re.findall(r"\w+", question.lower()))
     turns = json.dumps(history, sort_keys=True, ensure_ascii=False)
-    raw = json.dumps([text, code or "", role or "", moment, turns], ensure_ascii=False)
+    raw = json.dumps([lang, text, code or "", role or "", moment, turns], ensure_ascii=False)
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 
@@ -492,8 +497,9 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
     if not question:  # nothing to ask: no LLM call, just the starters
         return {"answer": "", "sources": [], "followups": suggestions(data, code, role)[:MAX_FOLLOWUPS]}
 
+    lang = _lang.detect(question)
     turns = _history(history)
-    cache_key = _cache_key(question, code, role, turns, data)
+    cache_key = _cache_key(question, code, role, turns, data, lang)
     cached = _cache_get(cache_key)
     if cached is None and not _warming_up:
         cached = _wait_for_warm_up(cache_key)
@@ -507,7 +513,8 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
     built = time.perf_counter()
     contents = [{"role": "model" if t["role"] == "assistant" else "user", "parts": [{"text": t["text"]}]}
                 for t in turns]
-    contents.append({"role": "user", "parts": [{"text": f"Snapshot:\n{snapshot}\n\nQuestion: {question}"}]})
+    contents.append({"role": "user", "parts": [
+        {"text": f"{_lang.INSTRUCTION[lang]}\n\nSnapshot:\n{snapshot}\n\nQuestion: {question}"}]})
     body = json.dumps({
         "system_instruction": {"parts": [{"text": SYSTEM}]},
         "contents": contents,
@@ -522,7 +529,7 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
             raise ChatUnavailable(f"{model}: empty answer")
     except ChatUnavailable as error:
         # The LLM failed or took too long: answer from our own data when the question allows it.
-        backup = fallback.answer(question, snap, code, role, suggestions(data, code, role))
+        backup = fallback.answer(question, snap, code, role, suggestions(data, code, role, lang), lang)
         log.warning("chat llm failed after %d ms (%s); %s", (time.perf_counter() - built) * 1000, error,
                     "answered from engine data" if backup else "no engine answer, 503")
         if backup is None:
@@ -532,22 +539,24 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
         answered = time.perf_counter()
         log.info("chat snapshot=%d ms (%d chars) llm=%d ms q=%r code=%s", (built - started) * 1000,
                  len(snapshot), (answered - built) * 1000, question[:60], code)
-    log.info("chat answered by %s", model)
+    log.info("chat answered by %s in %s", model, lang)
     unknown = unverified_numbers(result["answer"], snapshot + " " + question)
     if unknown:
         log.warning("chat numbers not in the snapshot %s q=%r answer=%r", unknown, question[:60],
                     result["answer"][:200])
     if not result["followups"]:
-        result["followups"] = [q for q in suggestions(data, code, role) if q != question][:MAX_FOLLOWUPS]
+        result["followups"] = [q for q in suggestions(data, code, role, lang) if q != question][:MAX_FOLLOWUPS]
     _cache_put(cache_key, result)
     return result
 
 
 # ---------- starter questions and warm-up ----------
 
-def suggestions(data, code: str | None = None, role: str | None = None) -> list[str]:
-    """3-4 starter questions for the screen (code = Error detail) and the user's role."""
+def suggestions(data, code: str | None = None, role: str | None = None, lang: str = _lang.EN) -> list[str]:
+    """3-4 starter questions for the screen (code = Error detail), the user's role and the language."""
     _key()
+    if lang == _lang.SK:
+        return _suggestions_sk(data, code, role)
     who = role or "we"
     if code:
         out = [f"Why does {code} happen?", f"How much do we gain if we fix {code}?"]
@@ -565,6 +574,27 @@ def suggestions(data, code: str | None = None, role: str | None = None) -> list[
     out.append(f"What should {who} prepare for tomorrow?")
     out.append("Which error costs us the most?")
     out.append("How is today's shift going?")
+    return out[:4]
+
+
+def _suggestions_sk(data, code: str | None, role: str | None) -> list[str]:
+    """The same starters in Slovak, with diacritics."""
+    who = _lang.SK_ROLES.get(role or "")
+    if code:
+        out = [f"Prečo vzniká {code}?", f"Koľko získame, ak opravíme {code}?"]
+        if any(u["code"] == code for u in upcoming(data)):
+            out.append(f"Kedy sa {code} očakáva najbližšie?")
+        out.append(f"Ako má {who} riešiť {code}?" if who else f"Ako máme riešiť {code}?")
+        return out[:4]
+    ctx = normalize(data)
+    out = []
+    if not ctx.hours.empty and ctx.hours["date"].nunique() >= 5:
+        worst = min(_by_weekday(ctx), key=lambda d: d["oee_pct"])
+        n = [w[:3] for w in WEEKDAYS].index(worst["day"])
+        out.append(f"Prečo je OEE {_lang.SK_DAY_ON[n]} nízke?")
+    out.append(f"Čo má {who} pripraviť na zajtra?" if who else "Čo máme pripraviť na zajtra?")
+    out.append("Ktorá chyba nás stojí najviac?")
+    out.append("Ako ide dnešná zmena?")
     return out[:4]
 
 
@@ -590,12 +620,13 @@ def _wait_for_warm_up(key: str) -> dict | None:
 WARM_CODE_QUESTIONS = 2  # on Error detail: "Why does X happen?" and "How much do we gain if we fix X?"
 
 
-def warm_up(data, role: str | None = None, actions: list[dict] | None = None, code: str | None = None) -> int:
+def warm_up(data, role: str | None = None, actions: list[dict] | None = None, code: str | None = None,
+            lang: str = _lang.EN) -> int:
     """Answer the starter questions of a screen in the background, one at a time, so tapping one is
     instant: the Now screen's four, or the first two of Error detail for `code`. Returns how many
     were queued. Does nothing without a key."""
     try:
-        questions = suggestions(data, code, role)
+        questions = suggestions(data, code, role, lang)
     except ChatUnavailable:
         return 0
     if code:
@@ -604,7 +635,7 @@ def warm_up(data, role: str | None = None, actions: list[dict] | None = None, co
         return 0
     queued = 0
     for question in questions:
-        key = _cache_key(question, code, role, [], data)
+        key = _cache_key(question, code, role, [], data, _lang.detect(question))
         with _warm_lock:
             if key in _warming or _cache_get(key) is not None:
                 continue

@@ -960,3 +960,86 @@ def test_a_tap_on_a_queued_question_asks_live_and_the_warm_up_skips_it(ds, llm):
     chat_module._warm_pool.submit(lambda: None).result(timeout=20)
     assert len(llm.calls) == 4  # the warm-up did not ask the fourth again
 
+
+
+# ---------- Ask AI in Slovak ----------
+
+lang_module = importlib.import_module("insights.lang")
+SK_STARTERS = ["Prečo je OEE v stredu nízke?", "Čo má údržba pripraviť na zajtra?",
+               "Ktorá chyba nás stojí najviac?", "Ako ide dnešná zmena?"]
+
+
+def test_language_detection():
+    for question in SK_STARTERS + ["Preco je OEE v stredu nizke?", "Aky je stav pre ST-038?",
+                                   "Kolko ziskame, ak opravime ST-038?", "Kedy sa ST-038 očakáva najbližšie?"]:
+        assert lang_module.detect(question) == "sk", question
+    for question in STARTERS + ["How much do we gain if we fix ST-038?", "and on Thursdays?", "Why?"]:
+        assert lang_module.detect(question) == "en", question
+
+
+def test_slovak_question_gets_a_slovak_instruction_and_the_weekday_focus(ds, llm):
+    chat("Prečo je OEE v stredu nízke?", at(ds, "2026-11-25 09:20"), role="Maintenance")
+    prompt = llm.prompt
+    assert prompt.startswith("Answer language: Slovak (slovenčina)") and "diacritics" in prompt
+    assert prompt.endswith("Question: Prečo je OEE v stredu nízke?")
+    assert llm.snapshot["focus"]["weekday"] == "Wednesday"
+    system = llm.calls[0]["body"]["system_instruction"]["parts"][0]["text"]
+    assert "answer language named in the last message" in system
+    chat("Why is OEE low on Wednesdays?", at(ds, "2026-11-25 09:20"), role="Maintenance")
+    assert llm.prompt.startswith("Answer language: English.")
+
+
+def test_cache_separates_languages(ds, llm):
+    frames = at(ds, "2026-11-25 09:20")
+    chat("Prečo je OEE v stredu nízke?", frames, role="Maintenance")
+    chat("Prečo je OEE v stredu nízke?", frames, role="Maintenance")
+    chat("Why is OEE low on Wednesdays?", frames, role="Maintenance")
+    assert len(llm.calls) == 2
+    keys = {chat_module._cache_key("Ako ide dnešná zmena?", None, None, [], frames, lang) for lang in ("en", "sk")}
+    assert len(keys) == 2
+
+
+def test_slovak_starters(ds, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    frames = at(ds, "2026-11-25 09:20")
+    assert suggestions(frames, role="Maintenance", lang="sk") == SK_STARTERS
+    assert suggestions(frames, lang="sk")[1] == "Čo máme pripraviť na zajtra?"
+    assert suggestions(frames, code="ST-038", role="Maintenance", lang="sk") == [
+        "Prečo vzniká ST-038?", "Koľko získame, ak opravíme ST-038?",
+        "Kedy sa ST-038 očakáva najbližšie?", "Ako má údržba riešiť ST-038?"]
+
+
+def test_slovak_fallback_answers(ds, real_fixes):
+    frames = at(ds, "2026-11-25 09:20")
+    expected = {
+        SK_STARTERS[0]: "OEE v stredu je 81,9 % oproti 89,5 % v ostatných dňoch, pri 121 min prestojov. ST-038 "
+                        "(Camera: Camera light module interrupted operation) zastavuje linku každú stredu o 09:08 "
+                        "(4 zo 4 týždňov), doteraz 87 ks; jeho odstránenie prinesie +1,04 p. b. OEE.",
+        SK_STARTERS[1]: "Zajtra o 08:08: ST-047 (Test nest allows air leakage) s vysokou pravdepodobnosťou, ohrozených "
+                        "~15 ks. Opatrenie (Maintenance): Replace worn test nest sealing gaskets on a weekly "
+                        "preventive maintenance schedule.",
+        SK_STARTERS[2]: "Najviac nás stojí spomalenie: 272,1 ks za tento mesiac. Nasledujú mikroprestoje (162,5 ks) "
+                        "a ST-038 (87 ks).",
+        SK_STARTERS[3]: "Dnešné OEE je 76,4 % (8,6 p. b. pod cieľom 85 %): doteraz 44,9 ks strát a 25 min prestojov.",
+    }
+    for question, text in expected.items():
+        snap = build_snapshot(frames, None, "Maintenance", [], question)
+        result = fallback_module.answer(question, snap, None, "Maintenance", SK_STARTERS, "sk")
+        assert result["answer"] == text and result["sources"] == ["Dáta systému"]
+        assert chat_module.unverified_numbers(text, json.dumps(snap)) == []  # decimal commas included
+    snap = build_snapshot(frames, "ST-038")
+    for question, text in (
+            ("Koľko získame, ak opravíme ST-038?", "Odstránenie ST-038 prinesie +1,04 p. b. OEE (80,1 ks): OEE 88,0 % → 89,1 %."),
+            ("Kedy sa ST-038 očakáva najbližšie?", "ST-038 sa najbližšie očakáva v stredu 2. 12. o 09:08 s vysokou pravdepodobnosťou."),
+            ("Prečo vzniká ST-038?", "ST-038 zastavuje linku každú stredu o 09:08 (4-krát), spolu 87 min a 87 ks — "
+                                     "pravidelný vzorec, nie náhodné opotrebenie.")):
+        assert fallback_module.answer(question, snap, "ST-038", lang="sk")["answer"] == text
+    month = build_snapshot(at(ds, "2026-11-30 14:00"), "ST-038")
+    assert "+1,00 p. b. OEE (92,1 ks)" in fallback_module.answer("Koľko získame, ak opravíme ST-038?", month, "ST-038", lang="sk")["answer"]
+
+
+def test_slovak_question_falls_back_in_slovak(ds, llm):
+    llm.text = BUSY
+    result = chat("Čo má údržba pripraviť na zajtra?", at(ds, "2026-11-25 09:20"), role="Maintenance")
+    assert result["answer"].startswith("Zajtra o 08:08: ST-047") and result["sources"] == ["Dáta systému"]
+    assert result["followups"] == ["Prečo je OEE v stredu nízke?", "Ktorá chyba nás stojí najviac?", "Ako ide dnešná zmena?"]
