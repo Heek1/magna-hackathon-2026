@@ -1228,3 +1228,16 @@ def test_about_overview_has_real_numbers_and_no_internal_words(ds, monkeypatch):
         assert "snapshot" not in reply["answer"].lower() and reply["followups"]
     assert chat_module._no_internal_words("The snapshot does not answer the question.") \
         == "The line data does not answer the question."
+
+
+def test_refusal_of_an_engine_question_gets_the_engine_answer(ds, llm):
+    llm.text = json.dumps({"answer": "I am sorry, but I cannot answer that from the line data.",
+                           "sources": ["Line data"], "followups": ["What is today's OEE?"]})
+    result = chat("What should Team leader prepare for tomorrow?", at(ds, "2026-11-25 09:20"), role="Team leader")
+    assert "ST-047" in result["answer"] and "cannot" not in result["answer"]
+
+
+def test_prompt_tells_the_model_to_answer_prepare_questions(ds, llm):
+    chat("What should Maintenance prepare for tomorrow?", at(ds, "2026-11-25 09:20"))
+    system = llm.calls[0]["body"]["system_instruction"]["parts"][0]["text"]
+    assert "never refuse while upcoming stops exist" in system
