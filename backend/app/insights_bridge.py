@@ -94,15 +94,14 @@ def chat_suggestions(data: dict, code: str | None = None, role: str | None = Non
     if _suggestions is None:
         raise ChatUnavailable("suggestions() is not implemented yet")
     questions = _suggestions(data, code, role)
-    if code is None:  # the Now screen asks for these: answer them in the background now
-        warm_chat(data, role)
+    warm_chat(data, role, code)  # the screen shows these now: answer them in the background
     return questions
 
 
-def warm_chat(data: dict, role: str | None = None) -> None:
-    """Precompute the starter answers in the background (no-op without a key)."""
+def warm_chat(data: dict, role: str | None = None, code: str | None = None) -> None:
+    """Precompute the starter answers of a screen in the background (no-op without a key)."""
     if _warm_up is not None:
         try:
-            _warm_up(data, role)
+            _warm_up(data, role, code=code)
         except Exception:  # warming is an optimisation only
             pass

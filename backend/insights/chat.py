@@ -21,6 +21,7 @@ import httpx
 import pandas as pd
 
 from .common import WEEKDAYS, normalize
+from . import engine as _engine
 from .engine import _load_countermeasures, get_insights
 from . import fallback
 from .explain import explain
@@ -230,17 +231,31 @@ def _focus_weekday(ctx, data, weekday: int, patterns: dict, fixes: dict) -> dict
                                 for s in recurring]}
 
 
-def build_snapshot(data, code: str | None = None, role: str | None = None,
-                   actions: list[dict] | None = None, question: str = "") -> dict:
-    """What the LLM sees, kept small: KPIs, OEE by weekday, top 5 losses, patterns, upcoming stops,
-    what-if gains, open actions, and the focus of the question (the error on screen or a weekday)."""
+BASE_TTL_S = 120
+_base_cache: dict[tuple, tuple[float, tuple]] = {}
+_base_lock = threading.Lock()
+
+
+def _base_key(data) -> tuple:
+    """The same simulated day, stops so far and 5-minute slot share the costly part of the snapshot."""
+    sim_time = data["hours"].attrs.get("sim_time")
+    slot = pd.Timestamp(sim_time).floor("5min").isoformat() if sim_time is not None else "all"
+    return (slot, len(data["hours"]), len(data["downtime"]), len(data["nok"]), str(_engine.COUNTERMEASURES_PATH))
+
+
+def _base(data) -> tuple:
+    """(ctx, fixes, patterns, snapshot part without role, actions and focus). Insights, upcoming
+    stops and the what-if gains are the costly part (a second or more on a small cloud CPU), so
+    they are computed once per key and shared by every question and the warm-up."""
+    key = _base_key(data)
+    with _base_lock:
+        hit = _base_cache.get(key)
+        if hit and hit[0] > time.monotonic():
+            return hit[1]
     ctx = normalize(data)
-    if ctx.hours.empty:
-        return {"now": str(ctx.sim_time), "note": "no production data yet"}
     fixes = _load_countermeasures()
     insights = get_insights(data)
     patterns = _patterns(insights, ctx)
-
     recurring = [s["code"] for s in patterns["recurring_stops"]]
     slow = [f"slow_hour_{s['shift_hour']}" for s in patterns["slow_hours"]]
     gains = [_gain(data, [c]) for c in recurring]
@@ -248,10 +263,8 @@ def build_snapshot(data, code: str | None = None, role: str | None = None,
         gains.append(_gain(data, recurring))
     if slow:
         gains.append(_gain(data, slow))
-
-    snapshot = {
+    part = {
         "now": f"{ctx.sim_time:%Y-%m-%d %a %H:%M}" if ctx.sim_time is not None else None,
-        "role": role,
         "target_pct": 85.0,
         "month": {"from": f"{ctx.hours['date'].min():%d %b}", "to": f"{ctx.hours['date'].max():%d %b}",
                   "shifts": int(ctx.hours["date"].nunique()), **_kpis(ctx.hours)},
@@ -263,9 +276,25 @@ def build_snapshot(data, code: str | None = None, role: str | None = None,
                       "confidence": u["confidence"], "risk_pcs": u["risk_pcs"], "fix": _fix(fixes, u["code"])}
                      for u in upcoming(data)[:4]],
         "gains": gains,
-        "open_actions": [{k: a.get(k) for k in ("title", "owner", "status")}
-                         for a in (actions or []) if a.get("status") != "done"],
     }
+    value = (ctx, fixes, patterns, part)
+    with _base_lock:
+        if len(_base_cache) >= 16:
+            _base_cache.clear()
+        _base_cache[key] = (time.monotonic() + BASE_TTL_S, value)
+    return value
+
+
+def build_snapshot(data, code: str | None = None, role: str | None = None,
+                   actions: list[dict] | None = None, question: str = "") -> dict:
+    """What the LLM sees, kept small: KPIs, OEE by weekday, top 5 losses, patterns, upcoming stops,
+    what-if gains, open actions, and the focus of the question (the error on screen or a weekday)."""
+    if data["hours"].empty:
+        return {"now": str(data["hours"].attrs.get("sim_time")), "note": "no production data yet"}
+    ctx, fixes, patterns, part = _base(data)
+    snapshot = {"now": part["now"], "role": role, **{k: v for k, v in part.items() if k != "now"},
+                "open_actions": [{k: a.get(k) for k in ("title", "owner", "status")}
+                                 for a in (actions or []) if a.get("status") != "done"]}
     if code:
         snapshot["focus"] = _focus_code(ctx, data, code, fixes)
     elif (weekday := _asked_weekday(question)) is not None:
@@ -440,6 +469,8 @@ def _cache_put(key: str, value: dict) -> None:
 def clear_cache() -> None:
     with _cache_lock:
         _cache.clear()
+    with _base_lock:
+        _base_cache.clear()
 
 
 # ---------- chat ----------
@@ -540,18 +571,24 @@ _warming: set[str] = set()
 _warm_lock = threading.Lock()
 
 
-def warm_up(data, role: str | None = None, actions: list[dict] | None = None) -> int:
-    """Answer the Now screen's starter questions in the background, one at a time, so tapping one
-    is instant. Returns how many were queued. Does nothing without a key."""
+WARM_CODE_QUESTIONS = 2  # on Error detail: "Why does X happen?" and "How much do we gain if we fix X?"
+
+
+def warm_up(data, role: str | None = None, actions: list[dict] | None = None, code: str | None = None) -> int:
+    """Answer the starter questions of a screen in the background, one at a time, so tapping one is
+    instant: the Now screen's four, or the first two of Error detail for `code`. Returns how many
+    were queued. Does nothing without a key."""
     try:
-        questions = suggestions(data, None, role)
+        questions = suggestions(data, code, role)
     except ChatUnavailable:
         return 0
+    if code:
+        questions = questions[:WARM_CODE_QUESTIONS]
     if data["hours"].empty:  # start of the first shift: nothing to answer from yet
         return 0
     queued = 0
     for question in questions:
-        key = _cache_key(question, None, role, [], data)
+        key = _cache_key(question, code, role, [], data)
         with _warm_lock:
             if key in _warming or _cache_get(key) is not None:
                 continue
@@ -559,7 +596,7 @@ def warm_up(data, role: str | None = None, actions: list[dict] | None = None) ->
 
         def run(q=question, k=key):
             try:
-                chat(q, data, role=role, actions=actions)
+                chat(q, data, code=code, role=role, actions=actions)
             except Exception as error:  # a warm-up failure only means the tap asks live
                 log.info("chat warm-up skipped %r: %s", q[:60], error)
             finally:
