@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import re
 
-from .lang import (EN, SK, SK_CONFIDENCE, SK_DAY_EVERY, SK_DAY_ON, SK_SPEED, fold, num, sk_when)
+from .lang import (EN, SK, UK, SK_CONFIDENCE, SK_DAY_EVERY, SK_DAY_ON, SK_SPEED, fold, num, sk_when)
 from .common import WEEKDAYS
 
-SOURCE = {EN: "Engine data", SK: "Dáta systému"}
+SOURCE = {EN: "Engine data", SK: "Dáta systému", UK: "Дані лінії"}
 SPEED_NAMES = {"slowdown": "Slowdown", "microstop": "Microstops", "retest": "Retests"}
 
 # Intent words; Slovak ones are matched on the question without diacritics.
@@ -211,3 +211,88 @@ def answer(question: str, snapshot: dict, code: str | None = None, role: str | N
         return None
     return {"answer": text, "sources": [SOURCE[lang]],
             "followups": [q for q in (followups or []) if q.strip().lower() != question.strip().lower()][:3]}
+
+
+# ---------- "tell me about the project", "what can you do" ----------
+
+ABOUT = {
+    EN: ("about the project", "about this", "about the app", "about you", "what can you do", "what do you do",
+         "who are you", "what are you", "what is this", "tell me about", "overview", "introduce", "help me",
+         "how does it work"),
+    SK: ("o projekte", "o aplikacii", "o sebe", "co vies", "co dokazes", "co robis", "kto si",
+         "co je to", "povedz mi o", "predstav", "pomoc", "ako to funguje", "prehlad"),
+    UK: ("проєкт", "проект", "розкаж", "роскаж", "що ти", "хто ти", "що це", "що вмієш", "що можеш",
+         "допомож", "як це працює", "огляд", "про себе"),
+}
+
+
+def about_lang(question: str, lang: str) -> str | None:
+    """The language of a general question about the app or the line ("tell me about the project",
+    "Povedz mi o projekte" even without diacritics), or None for any other question."""
+    q = fold(question)
+    if re.search(r"\b(st|q)-\d+", q):  # "tell me about ST-038" is a question about that error
+        return None
+    if q.strip(" ?!.") in ("help", "hi", "hello", "hey"):
+        return EN
+    if q.strip(" ?!.") in ("pomoc", "ahoj"):
+        return SK
+    if q.strip(" ?!.") in ("привіт", "допомога"):
+        return UK
+    for candidate in (lang, EN, SK, UK):
+        if any(w in q for w in ABOUT[candidate]):
+            return candidate
+    return None
+
+
+def is_about(question: str, lang: str) -> bool:
+    return about_lang(question, lang) is not None
+
+
+def overview(snapshot: dict, lang: str, followups: list[str] | None = None) -> dict | None:
+    """What the app is, the month in three facts and the top fix; every number from the snapshot."""
+    month = snapshot.get("month")
+    if not month:
+        return None
+    lost = month["lost_pcs"]
+    down, nok = month["downtime_min"], month["nok"]
+    speed = max(0.0, lost - down - nok)
+
+    def share(value):
+        return round(100 * value / lost) if lost else 0
+
+    stops = (snapshot.get("patterns") or {}).get("recurring_stops") or []
+    stop = stops[0] if stops else None
+    gain = next((g for g in snapshot.get("gains", []) if stop and g["remove"] == [stop["code"]]), None)
+    station = stop["what"].split(":")[0] if stop else ""
+    target = snapshot.get("target_pct", 85.0)
+    if lang == SK:
+        text = (f"Som AI asistent OEE Improvement Engine pre linku montáže elektrických pohonov. "
+                f"Od {month['from']} do {month['to']} je OEE {_pct(month['oee_pct'], lang)} pri cieli "
+                f"{num(target, lang=lang)} %; stratilo sa {num(round(lost))} ks: rýchlosť {share(speed)} %, "
+                f"prestoje {share(down)} %, nepodarky {share(nok)} %.")
+        if stop:
+            text += f" Najväčší opakovaný prestoj je {stop['code']} ({station}), každý {stop['every']}"
+            text += f" — jeho odstránenie prinesie {_pp(gain['gain_pp'], lang)}." if gain else "."
+        text += " Spýtajte sa ma, prečo prestoj vzniká, čo opraviť ako prvé alebo čo pripraviť na zajtra."
+    elif lang == UK:
+        text = (f"Я AI-асистент OEE Improvement Engine для лінії складання електроприводів. "
+                f"З {month['from']} по {month['to']} OEE {_pct(month['oee_pct'], EN)} при цілі "
+                f"{num(target)} %; втрачено {num(round(lost))} шт: швидкість {share(speed)} %, "
+                f"простої {share(down)} %, брак {share(nok)} %.")
+        if stop:
+            text += f" Найбільша повторювана зупинка — {stop['code']} ({station}), щоразу {stop['every']}"
+            text += f"; її усунення дасть {_pp(gain['gain_pp'], EN)} OEE." if gain else "."
+        text += " Спитайте, чому виникає зупинка, що виправити першим або до чого готуватися завтра."
+    else:
+        text = (f"I'm the AI assistant of the OEE Improvement Engine for the electric drive assembly line. "
+                f"From {month['from']} to {month['to']} OEE is {_pct(month['oee_pct'], lang)} against the "
+                f"{num(target)} % target; {num(round(lost))} pcs were lost: speed {share(speed)} %, "
+                f"downtime {share(down)} %, scrap {share(nok)} %.")
+        if stop:
+            text += f" The top recurring stop is {stop['code']} ({station}), every {stop['every']}"
+            text += f" — fixing it gives {_pp(gain['gain_pp'], lang)} OEE." if gain else "."
+        text += " Ask me why a stop happens, what to fix first, or what to prepare for tomorrow."
+    sources = {EN: ["Month OEE", "Losses by type", "Recurring stops"],
+               SK: ["OEE za mesiac", "Straty podľa typu", "Opakované prestoje"],
+               UK: ["OEE за місяць", "Втрати за типом", "Повторювані зупинки"]}[lang if lang in (SK, UK) else EN]
+    return {"answer": text, "sources": sources, "followups": (followups or [])[:3]}

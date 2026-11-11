@@ -61,7 +61,9 @@ SYSTEM = (
     "gain_if_fixed entries.\n"
     "3. Mention a countermeasure only for the codes your answer is about. Never add fixes, codes or "
     "facts the question did not ask about.\n"
-    "4. If the snapshot does not answer the question, say what the data shows and stop.\n"
+    "4. If the data cannot answer the question, say so in one friendly sentence and offer 2-3 things you "
+    "can answer (as followups). Never mention the snapshot, JSON or fields to the user; say 'the line "
+    "data' if needed.\n"
     "5. Write plain words with units (\"121 min of downtime\", \"87 pcs\", \"81.9 %\"), never the "
     "JSON field names. 1 lost piece = 1 planned minute; pp = OEE percentage points. For upcoming "
     "stops use their \"when\" label.\n"
@@ -587,6 +589,13 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
         return {"answer": "", "sources": [], "followups": suggestions(data, code, role)[:MAX_FOLLOWUPS]}
 
     lang = _lang.detect(question)
+    tips_lang = lang if lang in _lang.LANGUAGES else _lang.EN
+    about_in = None if code else fallback.about_lang(question, lang)
+    if about_in:  # "tell me about the project": a real overview, the same every time
+        tips = suggestions(data, None, role, about_in if about_in in _lang.LANGUAGES else _lang.EN)
+        about = fallback.overview(build_snapshot(data, None, role, actions, question), about_in, tips)
+        if about:
+            return about
     turns = _history(history)
     cache_key = _cache_key(question, code, role, turns, data, lang)
     cached = _cache_get(cache_key)
@@ -624,7 +633,7 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
     except ChatUnavailable as error:
         _mark_llm(False)
         # The LLM failed or took too long: answer from our own data when the question allows it.
-        backup = fallback.answer(question, snap, code, role, suggestions(data, code, role, lang), lang)
+        backup = fallback.answer(question, snap, code, role, suggestions(data, code, role, tips_lang), lang)
         log.warning("chat llm failed after %d ms (%s); %s", (time.perf_counter() - built) * 1000, error,
                     "answered from engine data" if backup else "no engine answer, 503")
         if backup is None:
@@ -639,18 +648,26 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
     if unknown:
         log.warning("chat numbers not in the snapshot %s q=%r answer=%r", unknown, question[:60],
                     result["answer"][:200])
+    result["answer"] = _no_internal_words(result["answer"])
     if not result["followups"]:
-        result["followups"] = [q for q in suggestions(data, code, role, lang) if q != question][:MAX_FOLLOWUPS]
+        result["followups"] = [q for q in suggestions(data, code, role, tips_lang) if q != question][:MAX_FOLLOWUPS]
     _cache_put(cache_key, result)
     return result
 
 
 # ---------- starter questions and warm-up ----------
 
+def _no_internal_words(text: str) -> str:
+    """The model sometimes names its input ("The snapshot does not..."); the user only knows the line."""
+    text = re.sub(r"\b(the |this |our )?(JSON )?snapshot\b", "the line data", text, flags=re.I)
+    return text[:1].upper() + text[1:] if text else text
+
+
 def _engine_answer(question: str, data, code, role, actions, lang: str) -> dict | None:
     """The engine-data answer, used at once while the LLM is known to be down."""
     snap = build_snapshot(data, code, role, actions, question)
-    backup = fallback.answer(question, snap, code, role, suggestions(data, code, role, lang), lang)
+    tips_lang = lang if lang in _lang.LANGUAGES else _lang.EN
+    backup = fallback.answer(question, snap, code, role, suggestions(data, code, role, tips_lang), lang)
     if backup:
         log.info("chat llm down (for %.0f s more): engine answer q=%r", _llm_down_until - time.monotonic(),
                  question[:60])

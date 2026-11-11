@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import re
 
-EN, SK = "en", "sk"
-LANGUAGES = (EN, SK)
+EN, SK, UK = "en", "sk", "uk"
+LANGUAGES = (EN, SK)  # starters and engine answers; UK questions get LLM answers in Ukrainian
 
 SK_LETTERS = set("áäčďéíĺľňóôŕšťúýž")
 # Common Slovak words, without diacritics (the question is folded before the check).
@@ -31,7 +31,9 @@ def fold(text: str) -> str:
 
 
 def detect(question: str) -> str:
-    """"sk" for a Slovak question, else "en"."""
+    """"sk" for a Slovak question, "uk" for a Cyrillic one (team tests in Ukrainian), else "en"."""
+    if re.search(r"[\u0400-\u04FF]", question):
+        return UK
     if SK_LETTERS & set(question.lower()):
         return SK
     words = re.findall(r"[a-z]+", fold(question))
@@ -78,6 +80,9 @@ def num(value, decimals: int | None = None, lang: str = EN) -> str:
 
 INSTRUCTION = {
     EN: "Answer language: English. Write answer, sources and followups in English.",
+    UK: ("Answer language: the language of the question (Ukrainian if it is Ukrainian, otherwise that "
+         "language). Write answer, sources and followups in it. Keep codes (ST-038), numbers and units "
+         "as in the line data; quote station and error names in English."),
     SK: ("Answer language: Slovak (slovenčina). Write answer, sources and followups in Slovak with "
          "correct diacritics (á, ä, č, ď, é, í, ĺ, ľ, ň, ó, ô, ŕ, š, ť, ú, ý, ž); never drop them. "
          "Keep codes (ST-038), numbers and units as in the snapshot; a decimal comma is fine (81,9 %). "
