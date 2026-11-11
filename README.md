@@ -70,6 +70,12 @@ docker build -t oee-engine .
 docker run -p 8000:8000 -e DEMO_SEED_ACTIONS=1 oee-engine   # http://localhost:8000
 ```
 
+**On a laptop for the live demo** (Windows, no Docker): double-click `run_demo.cmd`. It builds the app
+when needed, starts it on port 8000 and shows a QR code with the laptop's address — scan it with the
+phone. The phone and the laptop must be on the same network; the safest is the phone's hotspot. Put
+`GEMINI_API_KEY=…` in a `.env` file next to the script for Ask AI. `run_demo.cmd -Reset` starts again
+with the three example fixes.
+
 **For development** (backend with reload + Vite dev server):
 
 ```bash
