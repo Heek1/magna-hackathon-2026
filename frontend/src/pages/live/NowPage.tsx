@@ -280,6 +280,11 @@ function untilText(ms: number, t: ReturnType<typeof useT>): string {
   if (ms <= 60_000) return t("until.now");
   const min = Math.round(ms / 60_000);
   const h = Math.floor(min / 60);
+  // Beyond a day "In 96 h 23 min" is hard to read: say days instead.
+  if (h >= 24) {
+    const d = Math.round(h / 24);
+    return d === 1 ? t("until.d1") : t("until.d", { d });
+  }
   return h ? t("until.hm", { h, m: min % 60 }) : t("until.m", { m: min });
 }
 

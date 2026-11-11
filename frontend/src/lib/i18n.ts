@@ -109,6 +109,8 @@ const en = {
   "until.now": "Now",
   "until.hm": "In {h} h {m} min",
   "until.m": "In {m} min",
+  "until.d1": "Tomorrow",
+  "until.d": "In {d} days",
 
   "role.Team leader": "Team leader",
   "role.Maintenance": "Maintenance",
@@ -254,6 +256,8 @@ const sk: Dict = {
   "until.now": "Teraz",
   "until.hm": "O {h} h {m} min",
   "until.m": "O {m} min",
+  "until.d1": "Zajtra",
+  "until.d": "O {d} dni",
 
   "role.Team leader": "Vedúci tímu",
   "role.Maintenance": "Údržba",
@@ -396,6 +400,8 @@ const uk: Dict = {
   "until.now": "Зараз",
   "until.hm": "Через {h} год {m} хв",
   "until.m": "Через {m} хв",
+  "until.d1": "Завтра",
+  "until.d": "Через {d} дн.",
 
   "role.Team leader": "Бригадир",
   "role.Maintenance": "Обслуговування",
