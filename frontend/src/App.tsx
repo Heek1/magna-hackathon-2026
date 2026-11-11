@@ -36,7 +36,7 @@ function Screens() {
         <Route index element={desktop ? board() : <NowPage />} />
         <Route path="errors" element={desktop ? board() : topErrors} />
         <Route path="errors/:code" element={desktop ? board(errorDetail) : errorDetail} />
-        <Route path="fixes" element={desktop ? <div className="h-full overflow-y-auto p-6">{fixes}</div> : fixes} />
+        <Route path="fixes" element={desktop ? <div className="scroll-thin h-full overflow-y-auto p-6">{fixes}</div> : fixes} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

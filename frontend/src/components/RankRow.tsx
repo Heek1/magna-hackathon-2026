@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Card } from "@/components/Card";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { pcs } from "@/lib/format";
 import { toneSolid, type Tone } from "@/lib/tone";
@@ -28,13 +29,14 @@ export function RankRow({
   title,
   meta,
   value,
-  valueLabel = "pcs lost",
+  valueLabel,
   ratio,
   tone = "stop",
   onClick,
   className,
 }: RankRowProps) {
   const reduce = useReducedMotion();
+  const t = useT();
   const body = (
     <>
       <div className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3">
@@ -47,7 +49,7 @@ export function RankRow({
         </span>
         <span className="flex flex-col items-end">
           <span className="num text-num-m text-text-primary">{pcs(value)}</span>
-          <span className="text-caption text-text-tertiary">{valueLabel}</span>
+          <span className="text-caption text-text-tertiary">{valueLabel ?? t("rank.pcsLost")}</span>
         </span>
       </div>
       <div className="mt-3 h-[5px] overflow-hidden rounded-full bg-bg-subtle" aria-hidden>

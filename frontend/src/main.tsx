@@ -8,6 +8,9 @@ import "@fontsource/geist-mono/500.css";
 import "@fontsource/geist-mono/600.css";
 import "./index.css";
 import App from "./App";
+import { startTheme } from "./lib/theme";
+
+startTheme();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

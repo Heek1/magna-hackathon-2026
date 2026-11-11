@@ -41,7 +41,7 @@ export function EventRow({ time, kind, title, subtitle, value, unit, onClick, cl
       </span>
       <span className="min-w-0">
         <span className="block truncate text-body font-medium text-text-primary">{title}</span>
-        <span className="block truncate text-caption text-text-secondary">{subtitle}</span>
+        <span className="block text-caption text-text-secondary">{subtitle}</span>
       </span>
       <span className={cn("num whitespace-nowrap text-num-m", toneText[tone])}>{withUnit(value, unit)}</span>
     </Tag>

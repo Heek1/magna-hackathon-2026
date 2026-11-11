@@ -1,7 +1,10 @@
 import type { Config } from "tailwindcss";
-import { fonts, fontSize, motion, radius, shadow, spacing, tailwindColors } from "./src/theme/tokens";
+import plugin from "tailwindcss/plugin";
+import { fonts, fontSize, motion, radius, shadow, spacing, tailwindColors, themeVars } from "./src/theme/tokens";
 
 export default {
+  // Hover only where a real pointer exists, so taps on phones do not leave buttons stuck highlighted.
+  future: { hoverOnlyWhenSupported: true },
   content: { relative: true, files: ["./index.html", "./src/**/*.{ts,tsx}"] },
   theme: {
     extend: {
@@ -19,5 +22,10 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // Theme colors as CSS variables; <html data-theme="dark"> switches them.
+    plugin(({ addBase }) => {
+      addBase({ ":root": themeVars("light"), '[data-theme="dark"]': themeVars("dark") });
+    }),
+  ],
 } satisfies Config;

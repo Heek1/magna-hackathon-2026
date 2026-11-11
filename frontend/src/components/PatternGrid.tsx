@@ -1,4 +1,5 @@
 import type { Weekday } from "@/types/api";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { toneSolid, type Tone } from "@/lib/tone";
 
@@ -27,13 +28,14 @@ const pad = (n: number) => String(n).padStart(2, "0");
  * more occurrences; a weekday with any hit is shown in primary text.
  */
 export function PatternGrid({ cells, tone = "stop", days = DAYS, hours = HOURS, className }: PatternGridProps) {
+  const t = useT();
   const counts = new Map(cells.map((c) => [`${c.weekday}-${c.hour}`, c.count]));
   const max = Math.max(1, ...cells.map((c) => c.count));
 
   return (
     <div
       role="table"
-      aria-label="When it happens, by weekday and hour"
+      aria-label={t("pattern.aria")}
       className={cn("grid gap-1", className)}
       style={{ gridTemplateColumns: `36px repeat(${hours.length}, minmax(0, 1fr))` }}
     >
@@ -51,7 +53,7 @@ export function PatternGrid({ cells, tone = "stop", days = DAYS, hours = HOURS, 
               role="rowheader"
               className={cn("flex items-center text-caption", hot ? "font-semibold text-text-primary" : "text-text-tertiary")}
             >
-              {d}
+              {t(`day.${d}`)}
             </span>
             {hours.map((h) => {
               const n = counts.get(`${d}-${h}`) ?? 0;

@@ -1,85 +1,137 @@
 /**
  * Design tokens — the single source of truth (docs/design-brief.md; names match the Figma variables).
- * Tailwind (tailwind.config.ts) and the ECharts theme (theme/echarts.ts) both read from here.
+ * Colors are CSS variables, so the light and dark themes switch without a reload.
  * Do not hardcode colors, sizes or shadows anywhere else.
  */
 
-/** Figma: bg/*, text/*, border/*, status/* */
-export const palette = {
-  bg: {
-    canvas: "#F3F4F7", // page background
-    card: "#FFFFFF", // cards, tab bar
-    subtle: "#F6F7F9", // empty cells, progress tracks, rank badge
-    ink: "#0E1116", // hero status card, primary buttons
-  },
-  text: {
-    primary: "#0B0D12", // titles, numbers
-    secondary: "#5F6672", // supporting text
-    tertiary: "#9AA1AD", // labels, times, inactive tabs
-  },
-  border: {
-    default: "#E6E8EC", // dividers
-  },
-  status: {
-    stop: { DEFAULT: "#E5243B", bg: "#FDECEE" }, // downtime, line stopped, #1 to fix
-    defect: { DEFAULT: "#F08A00", bg: "#FFF4E5" }, // scrap / quality
-    speed: { DEFAULT: "#2F6BFF", bg: "#EAF0FF" }, // microstops, slowdown, retests
-    fix: { DEFAULT: "#0E9F6E", bg: "#E7F6EF" }, // solutions, gains
-  },
-} as const;
+/** Figma: bg/*, text/*, border/*, status/*. Every theme has the same names. */
+const light = {
+  "bg-canvas": "#F3F4F7", // page background
+  "bg-card": "#FFFFFF", // cards, tab bar
+  "bg-subtle": "#F6F7F9", // empty cells, progress tracks, rank badge
+  "bg-ink": "#0E1116", // hero status card
+  action: "#0E1116", // primary buttons
+  "action-text": "#FFFFFF",
+  "text-primary": "#0B0D12", // titles, numbers
+  "text-secondary": "#5F6672", // supporting text
+  "text-tertiary": "#9AA1AD", // labels, times, inactive tabs
+  "border-default": "#E6E8EC", // dividers
+  "border-strong": "#D5D9E0",
+  stop: "#E5243B", // downtime, line stopped, #1 to fix
+  "stop-bg": "#FDECEE",
+  defect: "#F08A00", // scrap / quality
+  "defect-bg": "#FFF4E5",
+  speed: "#2F6BFF", // microstops, slowdown, retests
+  "speed-bg": "#EAF0FF",
+  fix: "#0E9F6E", // solutions, gains
+  "fix-bg": "#E7F6EF",
+};
+
+type ThemeColors = typeof light;
+
+const dark: ThemeColors = {
+  "bg-canvas": "#0D1014",
+  "bg-card": "#171B21",
+  "bg-subtle": "#222830",
+  "bg-ink": "#2A323E", // lighter than the cards, so the hero still stands out
+  action: "#F2F4F7", // filled and bright: a primary button must not get lost in the greys
+  "action-text": "#0B0D12",
+  "text-primary": "#F2F4F7",
+  "text-secondary": "#A7B0BD",
+  "text-tertiary": "#7F8998",
+  "border-default": "#2B323C",
+  "border-strong": "#3A4350",
+  stop: "#FF5A6E",
+  "stop-bg": "#3B1A22",
+  defect: "#FFA62B",
+  "defect-bg": "#3A2A12",
+  speed: "#7AA2FF",
+  "speed-bg": "#1B2A4A",
+  fix: "#34D399",
+  "fix-bg": "#12332A",
+};
+
+export const themes = { light, dark };
+export type ThemeName = keyof typeof themes;
+
+/** "#E5243B" → "229 36 59", the form Tailwind needs for opacity modifiers like bg-status-stop/20. */
+function channels(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
+}
+
+/** CSS variables of a theme: { "--c-bg-canvas": "243 244 247", … }. */
+export function themeVars(name: ThemeName): Record<string, string> {
+  return Object.fromEntries(Object.entries(themes[name]).map(([k, v]) => [`--c-${k}`, channels(v)]));
+}
 
 /** Tone of anything that carries meaning: Chip, EventRow, RankRow, PatternGrid… */
 export type Tone = "stop" | "defect" | "speed" | "fix" | "neutral";
 
+const tw = (name: keyof ThemeColors) => `rgb(var(--c-${name}) / <alpha-value>)`;
+const css = (name: keyof ThemeColors) => `rgb(var(--c-${name}))`;
+
 /**
- * Deprecated: the old dark-theme names, mapped onto the light palette so pages that still use
- * them keep compiling and stay readable. Use `palette` / the new classes in new code.
+ * Deprecated: the old dark-theme names, mapped onto the current palette so pages that still use
+ * them keep compiling and stay readable. Use the new classes in new code.
  */
 const legacy = {
-  surface: palette.bg.card,
-  "surface-2": palette.bg.subtle,
-  "border-strong": "#D5D9E0",
-  muted: palette.text.secondary,
-  dim: palette.text.tertiary,
-  accent: palette.status.stop.DEFAULT,
-  ok: palette.status.fix.DEFAULT,
-  warn: palette.status.defect.DEFAULT,
-  crit: palette.status.stop.DEFAULT,
-  data: palette.status.speed.DEFAULT,
-  "data-2": palette.text.tertiary,
+  surface: tw("bg-card"),
+  "surface-2": tw("bg-subtle"),
+  "border-strong": tw("border-strong"),
+  muted: tw("text-secondary"),
+  dim: tw("text-tertiary"),
+  accent: tw("stop"),
+  ok: tw("fix"),
+  warn: tw("defect"),
+  crit: tw("stop"),
+  data: tw("speed"),
+  "data-2": tw("text-tertiary"),
 };
 
-/** Flat map for charts and inline styles: colors.canvas, colors.stop, colors["stop-bg"], … */
+/** For SVG and inline styles; they follow the active theme: colors.card, colors.stop, colors["fix-bg"], … */
 export const colors = {
-  canvas: palette.bg.canvas,
-  card: palette.bg.card,
-  subtle: palette.bg.subtle,
-  ink: palette.bg.ink,
-  primary: palette.text.primary,
-  secondary: palette.text.secondary,
-  tertiary: palette.text.tertiary,
-  line: palette.border.default,
-  stop: palette.status.stop.DEFAULT,
-  "stop-bg": palette.status.stop.bg,
-  defect: palette.status.defect.DEFAULT,
-  "defect-bg": palette.status.defect.bg,
-  speed: palette.status.speed.DEFAULT,
-  "speed-bg": palette.status.speed.bg,
-  fix: palette.status.fix.DEFAULT,
-  "fix-bg": palette.status.fix.bg,
-  // deprecated aliases
-  bg: palette.bg.canvas,
-  text: palette.text.primary,
-  border: palette.border.default,
-  ...legacy,
+  canvas: css("bg-canvas"),
+  card: css("bg-card"),
+  subtle: css("bg-subtle"),
+  ink: css("bg-ink"),
+  primary: css("text-primary"),
+  secondary: css("text-secondary"),
+  tertiary: css("text-tertiary"),
+  line: css("border-default"),
+  stop: css("stop"),
+  "stop-bg": css("stop-bg"),
+  defect: css("defect"),
+  "defect-bg": css("defect-bg"),
+  speed: css("speed"),
+  "speed-bg": css("speed-bg"),
+  fix: css("fix"),
+  "fix-bg": css("fix-bg"),
 } as const;
 
 /** Tailwind color config: bg-bg-card, text-text-secondary, border-border, bg-status-stop-bg, … */
 export const tailwindColors = {
-  bg: { DEFAULT: palette.bg.canvas, ...palette.bg },
-  text: { DEFAULT: palette.text.primary, ...palette.text },
-  border: { DEFAULT: palette.border.default, ...palette.border },
-  status: palette.status,
+  bg: {
+    DEFAULT: tw("bg-canvas"),
+    canvas: tw("bg-canvas"),
+    card: tw("bg-card"),
+    subtle: tw("bg-subtle"),
+    ink: tw("bg-ink"),
+  },
+  text: {
+    DEFAULT: tw("text-primary"),
+    primary: tw("text-primary"),
+    secondary: tw("text-secondary"),
+    tertiary: tw("text-tertiary"),
+  },
+  border: { DEFAULT: tw("border-default"), default: tw("border-default") },
+  action: { DEFAULT: tw("action"), text: tw("action-text") },
+  status: {
+    stop: { DEFAULT: tw("stop"), bg: tw("stop-bg") },
+    defect: { DEFAULT: tw("defect"), bg: tw("defect-bg") },
+    speed: { DEFAULT: tw("speed"), bg: tw("speed-bg") },
+    fix: { DEFAULT: tw("fix"), bg: tw("fix-bg") },
+  },
   ...legacy,
 };
 

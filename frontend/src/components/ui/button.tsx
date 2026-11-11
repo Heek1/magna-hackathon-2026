@@ -9,7 +9,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         /** Main action: ink button, e.g. "Assign", "Create action". */
-        primary: "border-transparent bg-bg-ink text-white hover:bg-bg-ink/90",
+        primary: "border-transparent bg-action text-action-text hover:bg-action/90",
         /** Secondary control on a card. */
         default: "border-border bg-bg-card text-text-primary hover:bg-bg-subtle",
         /** Floating round control on the canvas, e.g. the Back button. */
@@ -22,7 +22,8 @@ const buttonVariants = cva(
         selected: "border-transparent bg-bg-ink text-white",
       },
       size: {
-        sm: "h-9 rounded-chip px-4 text-caption",
+        // 36 px to the eye, 44 px to the finger: an invisible hit area above and below.
+        sm: "relative h-9 rounded-chip px-4 text-caption before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']",
         md: "h-11 px-4 text-body",
         lg: "h-[52px] px-5 text-title-m font-medium",
         icon: "h-11 w-11 rounded-full",
