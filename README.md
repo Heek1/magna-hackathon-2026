@@ -2,18 +2,32 @@
 
 **Every production loss visible and actionable — before the line stops.**
 
+[![Live demo](https://img.shields.io/badge/live%20demo-oee--engine.onrender.com-E5243B)](https://oee-engine.onrender.com/)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-TypeScript-3178C6?logo=react&logoColor=white)
+![Gemini](https://img.shields.io/badge/AI-Gemini-8E75B2?logo=googlegemini&logoColor=white)
+![Tests](https://img.shields.io/badge/backend%20tests-142%20passing-0E9F6E)
+
 A phone-first app for an electric drive assembly line. It replays the line data in real time,
 finds the losses that repeat, predicts the next stop, shows what fixing it is worth and who owns the
 fix, and answers "why?" with an AI assistant that only uses the line data.
 
-Built for Magna Hackathon 2026, challenge 5 "AI OEE Improvement Engine".
+Built in a few days at **Magna Hackathon 2026** (challenge 5, "AI OEE Improvement Engine") by team
+**ARVYDLiKuz** — see [Team](#team).
+
+**Try it:** [oee-engine.onrender.com](https://oee-engine.onrender.com/) — pick a role, then
+*Settings → Start demo*. It runs on a free server, so the first load can take up to a minute.
+**Pitch deck:** [PDF](docs/pitch/pitch_deck.pdf) · [PPTX](docs/pitch/pitch_deck.pptx)
 
 <p>
   <img src="docs/pitch/source/now.jpg" width="190" alt="Now: the line has stopped on ST-038, live timer and the recommended fix">
   <img src="docs/pitch/source/top.jpg" width="190" alt="Top errors: ST-038 is the error to fix first">
-  <img src="docs/pitch/source/detail.jpg" width="190" alt="Error detail: when it happens and the OEE gain if fixed">
+  <img src="docs/pitch/source/whatif.jpg" width="190" alt="If we fix it: OEE before and after fixing ST-038">
   <img src="docs/pitch/source/ask.jpg" width="190" alt="Ask AI: why is OEE low on Wednesdays">
 </p>
+
+<img src="docs/pitch/source/desktop.jpg" alt="Desktop and projector layout: Now, Top errors and the ST-038 detail side by side">
 
 ## What the data shows
 
@@ -96,7 +110,7 @@ cd frontend && npm install && npm run dev                              # http://
 
 Open the app → pick **Maintenance** → *Settings* → **Start demo** (Wed 25 Nov 08:50, 60× speed).
 *Coming up* warns that ST-038 is due; at 09:08 the line stops → **Top errors** → ST-038 →
-**If we fix it** (+1.00 pp) → **Ask AI** "Why is OEE low on Wednesdays?" → **Create action** →
+**If we fix it** (OEE before → after) → **Ask AI** "Why is OEE low on Wednesdays?" → **Create action** →
 **Fixes**. Tap *Live* to pause the clock.
 
 ### Configuration
@@ -126,11 +140,13 @@ Dockerfile          one container for the public demo
 
 ## Team
 
+Team **ARVYDLiKuz**:
+
 | Member | Area | Branch |
 |---|---|---|
-| 1 · Vlad (@Heek1) | backend core, Top errors / Error detail / Fixes screens, deployment | `feat/backend-core` |
-| 2 · Oleksandr Kuz | detection engine, predictions, what-if, AI assistant | `feat/insights` |
-| 3 · @daniillopatnev-cell | frontend, design system, Now screen, themes, PWA | `feat/frontend-live` |
-| 4 · @keksarick | countermeasure knowledge base, pitch | `feat/kb-analysis-qa` |
+| **Yuzevych Vladyslav** ([Heek1](https://github.com/Heek1)) — team lead | backend core, Top errors / Error detail / Fixes screens, deployment | `feat/backend-core` |
+| **Kuz Oleksandr** | detection engine, predictions, what-if, AI assistant | `feat/insights` |
+| **Lopatnov Daniil** ([daniillopatnev-cell](https://github.com/daniillopatnev-cell)) | frontend, design system, Now screen, themes, PWA | `feat/frontend-live` |
+| **Rykitsianski Artsem** ([keksarick](https://github.com/keksarick)) | countermeasure knowledge base, pitch | `feat/kb-analysis-qa` |
 
 Every change goes through a pull request into `main`; each member works in their own folders.
