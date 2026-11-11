@@ -3,7 +3,7 @@
 **Target Duration**: 60 seconds (max)  
 **Target Device**: Smartphone (Mobile PWA / 390 × 844) or mirrored mobile view  
 **Audience**: Magna Hackathon Judges & Plant Leadership  
-**Live URL**: `https://oee-engine.onrender.com/?key=zG5h4un131h_`
+**Live URL**: `https://oee-engine.onrender.com/`
 
 ---
 
@@ -143,4 +143,4 @@ Testing was conducted on real mobile viewports (iPhone 14/15 390 × 844) and the
    - *Notice*: The tab bar is intentionally replaced by the sticky **"Create action for Maintenance"** button to focus the user on taking action. Tapping it or the top back chevron returns navigation to the main tabs.
 3. **Network Latency on Cloud Hosting**:
    - *Risk*: Render free-tier cold starts.
-   - *Fix*: Ping `https://oee-engine.onrender.com/?key=zG5h4un131h_` 2 minutes prior to pitching to ensure the container is warm.
+   - *Fix*: Ping `https://oee-engine.onrender.com/` 2 minutes prior to pitching to ensure the container is warm.
