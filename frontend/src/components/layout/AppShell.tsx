@@ -1,9 +1,10 @@
 import { Suspense, type ComponentType, type ReactNode } from "react";
-import { Outlet, useMatch } from "react-router-dom";
-import { ChartColumn, Clock, SquareCheck } from "lucide-react";
+import { Outlet, useLocation, useMatch, useNavigate } from "react-router-dom";
+import { ChartColumn, Clock, SquareCheck, X } from "lucide-react";
 import { TabBar, type TabItem } from "@/components/TabBar";
 import { SideNav } from "@/components/layout/SideNav";
 import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/button";
 import { StateView } from "@/components/Panel";
 import { useIsDesktop } from "@/lib/useMediaQuery";
 import { useDocumentLang, useT } from "@/lib/i18n";
@@ -65,6 +66,9 @@ export function AppShell() {
  * Each column scrolls on its own.
  */
 export function DesktopBoard({ now, errors, detail }: { now: ReactNode; errors: ReactNode; detail?: ReactNode }) {
+  const t = useT();
+  const navigate = useNavigate();
+  const { search } = useLocation();
   return (
     <div
       className={cn(
@@ -76,6 +80,19 @@ export function DesktopBoard({ now, errors, detail }: { now: ReactNode; errors: 
       <Column>{errors}</Column>
       {detail && (
         <aside aria-label="Error detail" className="scroll-thin min-h-0 overflow-y-auto rounded-hero bg-bg-card px-gutter shadow-card">
+          {/* Stays in the corner while the panel scrolls; closing keeps the Top errors tab. */}
+          <div className="sticky top-0 z-10 -mb-8 flex h-12 items-center">
+            <Button
+              variant="surface"
+              size="icon"
+              className="-ml-2"
+              aria-label={t("common.close")}
+              title={t("common.close")}
+              onClick={() => navigate(`/errors${search}`)}
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </Button>
+          </div>
           {detail}
         </aside>
       )}
