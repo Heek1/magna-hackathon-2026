@@ -26,6 +26,7 @@ import type {
   SimControlState,
   SimState,
   UpcomingStop,
+  WhatIfResponse,
 } from "@/types/api";
 import { API_BASE, api, errorText, qs } from "@/api/client";
 import { parseTime, toIso } from "@/lib/format";
@@ -383,6 +384,41 @@ export function useErrorDetail(code: string | null, period?: Period): Resource<E
 /** GET /api/upcoming?hours — stops expected within that many hours of shift time. */
 export function useUpcoming(hours = 48): Resource<UpcomingStop[]> {
   return useApi<UpcomingStop[]>(`/upcoming${qs({ hours })}`);
+}
+
+/**
+ * POST /api/whatif for one error: what comes back if it is fixed. The same model as gain_pp on
+ * Top errors and Error detail, so every "gain" on screen agrees. `null` skips.
+ */
+export function useWhatIf(code: string | null, period?: Period): Resource<WhatIfResponse> {
+  const { refreshKey } = useRequired(LiveCtx, "useWhatIf");
+  const [data, setData] = useState<WhatIfResponse>();
+  const [error, setError] = useState<string | null>(null);
+  const key = code ? JSON.stringify({ remove: [code], ...period }) : null;
+  const loadedKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!key) return;
+    if (loadedKey.current !== key) {
+      // Another error or period: never show the previous one's numbers.
+      loadedKey.current = key;
+      setData(undefined);
+      setError(null);
+    }
+    const ctrl = new AbortController();
+    api<WhatIfResponse>("/whatif", { method: "POST", json: JSON.parse(key), signal: ctrl.signal })
+      .then((d) => {
+        setData(d);
+        setError(null);
+      })
+      .catch((e) => e.name !== "AbortError" && setError(errorText(e)));
+    return () => ctrl.abort();
+  }, [key, refreshKey]);
+
+  return useMemo(
+    () => ({ data: key ? data : undefined, loading: !!key && data === undefined && !error, error }),
+    [key, data, error],
+  );
 }
 
 /** GET /api/insights — shared, fetched once per refresh for the whole app. */

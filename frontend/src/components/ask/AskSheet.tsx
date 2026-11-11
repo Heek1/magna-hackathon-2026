@@ -6,7 +6,10 @@ import { errorText } from "@/api/client";
 import { Card } from "@/components/Card";
 import { Chip } from "@/components/Chip";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n";
+import { useBackToClose } from "@/lib/useBackToClose";
 import { cn } from "@/lib/utils";
+import type { Role } from "@/lib/role";
 import { motion as tokens } from "@/theme/tokens";
 
 export type AskMessage =
@@ -34,6 +37,8 @@ function history(messages: AskMessage[]): ChatTurn[] {
 
 /** "Ask AI" bottom sheet: starter questions, the conversation, a text field. */
 export function AskSheet({ onClose, code, role, suggestions, messages, setMessages }: AskSheetProps) {
+  const t = useT();
+  useBackToClose(onClose);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
@@ -115,13 +120,13 @@ export function AskSheet({ onClose, code, role, suggestions, messages, setMessag
             </span>
             <div className="min-w-0 flex-1">
               <h2 id="ask-ai-title" className="text-title-l leading-tight">
-                Ask AI
+                {t("ask.title")}
               </h2>
               <p className="truncate text-caption text-text-secondary">
-                {code ? `About ${code}` : "About the line"} · from line data only
+                {code ? t("ask.about", { code }) : t("ask.aboutLine")} · {t("ask.dataOnly")}
               </p>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label={t("common.close")}>
               <X className="h-5 w-5" aria-hidden />
             </Button>
           </div>
@@ -154,7 +159,7 @@ export function AskSheet({ onClose, code, role, suggestions, messages, setMessag
 
         <form onSubmit={submit} className="flex gap-2 border-t bg-bg-card px-gutter pb-[max(16px,env(safe-area-inset-bottom))] pt-3">
           <label htmlFor="ask-ai-input" className="sr-only">
-            Your question
+            {t("ask.question")}
           </label>
           <input
             id="ask-ai-input"
@@ -164,10 +169,10 @@ export function AskSheet({ onClose, code, role, suggestions, messages, setMessag
             maxLength={500}
             autoComplete="off"
             enterKeyHint="send"
-            placeholder={last?.kind === "answer" ? "Ask a follow-up…" : code ? `Ask about ${code}…` : "Ask about the line…"}
+            placeholder={last?.kind === "answer" ? t("ask.followup") : code ? t("ask.placeholderCode", { code }) : t("ask.placeholder")}
             className="h-11 min-w-0 flex-1 rounded-button border bg-bg-card px-3 text-body placeholder:text-text-tertiary"
           />
-          <Button type="submit" variant="primary" size="icon" disabled={!draft.trim() || busy} aria-label="Send">
+          <Button type="submit" variant="primary" size="icon" disabled={!draft.trim() || busy} aria-label={t("ask.send")}>
             <ArrowUp className="h-5 w-5" aria-hidden />
           </Button>
         </form>
@@ -177,15 +182,16 @@ export function AskSheet({ onClose, code, role, suggestions, messages, setMessag
 }
 
 function Starters({ suggestions, role, onPick }: { suggestions: string[]; role: string | null; onPick: (q: string) => void }) {
+  const t = useT();
   return (
     <div className="flex flex-col gap-3">
       <p className="text-body text-text-secondary">
-        Ask why the line loses output, what to prepare or what a fix is worth. Answers quote only this
-        month&apos;s line data{role ? `, with ${role} fixes first` : ""}.
+        {t("ask.intro")}
+        {role ? ` ${t("ask.introRole", { role: t(`role.${role as Role}`) })}` : ""}
       </p>
       {suggestions.length > 0 && (
         <>
-          <span className="overline-label mt-1">Try asking</span>
+          <span className="overline-label mt-1">{t("ask.try")}</span>
           <div className="flex flex-col items-start gap-2">
             {suggestions.map((q) => (
               <QuestionChip key={q} text={q} onClick={() => onPick(q)} />
@@ -243,6 +249,7 @@ function AnswerCard({
   onRevealed: () => void;
   onPick: (q: string) => void;
 }) {
+  const t = useT();
   const words = message.text.split(/(\s+)/);
   const [shown, setShown] = useState(() => (message.reveal && !prefersReducedMotion() ? 0 : words.length));
   const done = shown >= words.length;
@@ -267,7 +274,7 @@ function AnswerCard({
         </span>
         <p className="whitespace-pre-wrap text-body text-text-primary">{words.slice(0, shown).join("")}</p>
         {done && message.sources.length > 0 && (
-          <div className="flex flex-wrap gap-1.5" aria-label="Sources">
+          <div className="flex flex-wrap gap-1.5" aria-label={t("ask.sources")}>
             {message.sources.map((s) => (
               <Chip key={s} dot={false} className="h-6 px-2 text-[12px] text-text-secondary">
                 {s}
@@ -288,8 +295,9 @@ function AnswerCard({
 }
 
 function Typing() {
+  const t = useT();
   return (
-    <Card className="flex w-fit items-center gap-1.5 rounded-bl-badge-sm px-4 py-3.5" aria-label="AI is answering">
+    <Card className="flex w-fit items-center gap-1.5 rounded-bl-badge-sm px-4 py-3.5" aria-label={t("ask.typing")}>
       {[0, 1, 2].map((i) => (
         <motion.span
           key={i}
@@ -303,12 +311,13 @@ function Typing() {
 }
 
 function ErrorCard({ onRetry, disabled }: { onRetry: () => void; disabled: boolean }) {
+  const t = useT();
   return (
     <Card tone="stop" className="flex items-center gap-3">
-      <p className="flex-1 text-body text-text-primary">AI is not available right now.</p>
+      <p className="flex-1 text-body text-text-primary">{t("ask.unavailable")}</p>
       <Button variant="default" size="sm" onClick={onRetry} disabled={disabled}>
         <RotateCcw className="h-4 w-4" aria-hidden />
-        Try again
+        {t("ask.retry")}
       </Button>
     </Card>
   );

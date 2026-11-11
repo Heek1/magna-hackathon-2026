@@ -149,7 +149,7 @@ function FixFirst({ item, kind, period, onOpen }: { item: Loss; kind: EventKind;
           onClick={assign}
           className={cn(
             "ml-auto inline-flex h-9 items-center gap-1.5 rounded-chip px-3.5 text-caption font-medium transition active:scale-95",
-            assigned ? "bg-status-fix-bg text-status-fix" : "bg-bg-ink text-white",
+            assigned ? "bg-status-fix-bg text-status-fix" : "bg-action text-action-text",
           )}
         >
           {busy ? <Loader2 className="size-3.5 animate-spin" /> : assigned ? <Check className="size-3.5" strokeWidth={2.6} /> : null}

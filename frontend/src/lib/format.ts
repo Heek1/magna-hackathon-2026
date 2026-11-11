@@ -1,4 +1,5 @@
 /** Formatting helpers. True minus sign (U+2212) so signed numbers align in tabular figures. */
+import { getLang, translate } from "@/lib/i18n";
 
 const MINUS = "−";
 
@@ -21,7 +22,7 @@ export function signed(value: number, digits = 1): string {
 
 /** Percentage-point delta from fractions: (0.8118, 0.85) → "−3.8 pp" */
 export function ppDelta(value: number, target: number, digits = 1): string {
-  return `${signed((value - target) * 100, digits)} pp`;
+  return `${signed((value - target) * 100, digits)} ${translate("unit.pp")}`;
 }
 
 /** Pieces (can be fractional for the running hour): 9.62 → "9.6", 138 → "138", 190.0 → "190" */
@@ -47,12 +48,17 @@ export function hhmmss(d: Date): string {
   return `${hhmm(d)}:${pad(d.getSeconds())}`;
 }
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const LOCALE = { en: "en-GB", sk: "sk-SK", uk: "uk-UA" } as const;
 
-/** Date → "Wed 25 Nov" */
+/** Date → "Wed 25 Nov" in the active language */
 export function dayLabel(d: Date): string {
-  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  const f = new Intl.DateTimeFormat(LOCALE[getLang()], { weekday: "short", day: "numeric", month: "short" });
+  return f.format(d).replace(",", "");
+}
+
+/** Date → "Wed" in the active language */
+export function weekdayShort(d: Date): string {
+  return new Intl.DateTimeFormat(LOCALE[getLang()], { weekday: "short" }).format(d);
 }
 
 /** Duration in ms → "06:12" or "1:06:12"; days shown as "1d 02:10:00". */
@@ -84,11 +90,12 @@ export function hourLabel(hour: number): string {
 /** Value with its unit, singular for one piece: (1, "pcs") → "1 pc", (12, "min") → "12 min". */
 export function withUnit(value: number, unit: string): string {
   const v = pcs(value);
-  return `${v} ${unit === "pcs" && v === "1" ? "pc" : unit}`;
+  const name = unit === "pcs" ? translate(v === "1" ? "unit.pc" : "unit.pcs") : unit === "min" ? translate("unit.min") : unit;
+  return `${v} ${name}`;
 }
 
 /** Greeting by time of day of the simulation clock. */
 export function greeting(d: Date): string {
   const h = d.getHours();
-  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  return translate(h < 12 ? "greet.morning" : h < 18 ? "greet.afternoon" : "greet.evening");
 }

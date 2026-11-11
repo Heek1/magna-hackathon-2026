@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export interface TabItem {
@@ -10,9 +11,10 @@ export interface TabItem {
 
 /** Bottom tab bar for phones (Now, Top errors, Fixes). The shell hides it on Error detail. */
 export function TabBar({ items, className }: { items: TabItem[]; className?: string }) {
+  const t = useT();
   return (
     <nav
-      aria-label="Main"
+      aria-label={t("nav.main")}
       className={cn(
         "fixed inset-x-0 bottom-0 z-20 border-t bg-bg-card pb-[env(safe-area-inset-bottom)]",
         className,

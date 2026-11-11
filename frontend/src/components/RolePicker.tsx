@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Check, ChevronRight } from "lucide-react";
+import { useT } from "@/lib/i18n";
 import { ROLES, type Role } from "@/lib/role";
 import { cn } from "@/lib/utils";
 import { motion as tokens } from "@/theme/tokens";
@@ -20,6 +21,7 @@ export function RolePicker({
   onClose?: () => void;
 }) {
   const reduce = useReducedMotion();
+  const t = useT();
   const [picked, setPicked] = useState<Role | null>(null);
 
   const choose = (role: Role) => {
@@ -33,10 +35,10 @@ export function RolePicker({
       <header className="flex items-center gap-2.5">
         <span className="h-3 w-3 rounded-sm bg-status-stop" aria-hidden />
         <span className="text-body font-semibold text-text-primary">OEE Engine</span>
-        <span className="text-caption text-text-tertiary">· Line L01</span>
+        <span className="text-caption text-text-tertiary">· {t("brand.line")}</span>
         {onClose && (
-          <button onClick={onClose} className="ml-auto text-body font-medium text-status-speed">
-            Cancel
+          <button onClick={onClose} className="-my-2 ml-auto min-h-11 px-2 text-body font-medium text-status-speed">
+            {t("common.cancel")}
           </button>
         )}
       </header>
@@ -48,17 +50,17 @@ export function RolePicker({
         className="mt-12"
       >
         <h1 className="text-[40px] font-bold leading-[44px] tracking-tight text-text-primary">
-          Who's on
+          {t("role.title1")}
           <br />
-          the line?
+          {t("role.title2")}
         </h1>
         <p className="mt-3 max-w-[300px] text-body text-text-secondary">
-          We show your fixes first. Change it anytime from the Now screen.
+          {t("role.hint")}
         </p>
       </motion.div>
 
-      <ul className="mt-8 flex flex-col gap-2.5" aria-label="Your role">
-        {ROLES.map(({ role, icon: Icon, blurb }, i) => {
+      <ul className="mt-8 flex flex-col gap-2.5" aria-label={t("role.aria")}>
+        {ROLES.map(({ role, icon: Icon }, i) => {
           const on = picked === role || (!picked && current === role);
           return (
             <motion.li
@@ -85,8 +87,8 @@ export function RolePicker({
                   <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-body font-semibold text-text-primary">{role}</span>
-                  <span className="block text-caption text-text-secondary">{blurb}</span>
+                  <span className="block text-body font-semibold text-text-primary">{t(`role.${role}`)}</span>
+                  <span className="block text-caption text-text-secondary">{t(`blurb.${role}`)}</span>
                 </span>
                 {on ? (
                   <Check className="h-5 w-5 text-text-primary" strokeWidth={2.5} aria-hidden />
@@ -100,7 +102,7 @@ export function RolePicker({
       </ul>
 
       <p className="mt-auto pt-8 text-center text-caption text-text-tertiary">
-        No account needed · stored only on this phone
+        {t("role.foot")}
       </p>
     </div>
   );

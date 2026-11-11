@@ -6,6 +6,23 @@
   :root {
     color-scheme: light;
     -webkit-tap-highlight-color: transparent;
+    /* iOS and Android: keep our text sizes when the phone is rotated. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  [data-theme="dark"] {
+    color-scheme: dark;
+  }
+  /* Taps respond at once (no double-tap zoom wait); a long press does not select button labels. */
+  a,
+  button,
+  input,
+  label {
+    touch-action: manipulation;
+  }
+  button {
+    -webkit-user-select: none;
+    user-select: none;
   }
   html,
   body,
@@ -21,6 +38,11 @@
   :focus-visible {
     @apply outline outline-2 outline-offset-2 outline-status-speed;
   }
+  /* The page does not bounce or pull-to-refresh away from a live screen. */
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
 }
 
 @layer components {
@@ -33,14 +55,67 @@
   .overline-label {
     @apply font-sans text-overline uppercase text-text-tertiary;
   }
+  /* Full viewport height that stays correct under the large-screen zoom (vh is not zoomed). */
+  .h-viewport {
+    height: calc(100dvh / var(--app-zoom));
+  }
   /* Deprecated alias of .overline for older pages. */
   .label {
     @apply font-sans text-label uppercase text-text-tertiary;
   }
 }
 
+/* Projector / large screens: the same phone-sized components, scaled up so they read from 3 m. */
+:root {
+  --app-zoom: 1;
+}
+@media (min-width: 1600px) {
+  :root {
+    --app-zoom: 1.25;
+  }
+  html {
+    zoom: var(--app-zoom);
+  }
+}
+
+/* Fixes screen hardcodes a light track for its tabs; keep it readable in the dark theme. */
+[data-theme="dark"] .bg-\[\#E3E5EA\] {
+  background-color: rgb(var(--c-border-default));
+}
+
+/* iPhone zooms into any field under 16 px when it gets focus. Important: beats text-body on the field. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Desktop columns: a thin scrollbar that does not compete with the content. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--c-border-strong)) transparent;
+}
+
+/* Parts on the belt in the status card. */
+.conveyor-parts {
+  background-image: linear-gradient(90deg, currentColor 0 12px, transparent 12px);
+  background-size: 24px 100%;
+  opacity: 0.7;
+}
+.conveyor-moving {
+  animation: conveyor 1.2s linear infinite;
+}
+@keyframes conveyor {
+  to {
+    transform: translateX(24px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-stop-pulse {
+  .animate-stop-pulse,
+  .conveyor-moving {
     animation: none;
   }
 }

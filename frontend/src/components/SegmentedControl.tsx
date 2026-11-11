@@ -1,8 +1,10 @@
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
+  icon?: LucideIcon;
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -32,10 +34,11 @@ export function SegmentedControl<T extends string>({ options, value, onChange, l
             aria-checked={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "h-11 rounded-badge-sm text-body font-medium transition-colors",
+              "flex h-11 items-center justify-center gap-1.5 rounded-badge-sm text-body font-medium transition-colors",
               active ? "bg-bg-card text-text-primary shadow-card" : "text-text-secondary hover:text-text-primary",
             )}
           >
+            {o.icon && <o.icon className="h-4 w-4" aria-hidden />}
             {o.label}
           </button>
         );
