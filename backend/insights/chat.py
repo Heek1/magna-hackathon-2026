@@ -413,6 +413,21 @@ _exhausted: dict[tuple[str, int], float] = {}
 _exhausted_lock = threading.Lock()
 EXHAUSTED_MIN_S = 60  # a per-minute limit: try again soon; a daily one: skip until it resets
 
+# After the LLM has failed (quota, timeout, outage), questions the engine can answer get that answer
+# at once for LLM_DOWN_S instead of waiting up to TIMEOUT_S for another failure; the warm-up pauses.
+LLM_DOWN_S = 60.0
+_llm_down_until = 0.0
+
+
+def _llm_down() -> bool:
+    return time.monotonic() < _llm_down_until
+
+
+def _mark_llm(ok: bool) -> None:
+    global _llm_down_until
+    with _exhausted_lock:
+        _llm_down_until = 0.0 if ok else time.monotonic() + LLM_DOWN_S
+
 
 def _request(model: str, keys: list[str], body: bytes, timeout: float) -> tuple[str, str]:
     """One model, each key in turn: a 429 on the first key is retried once with the second.
@@ -544,8 +559,10 @@ def _cache_put(key: str, value: dict) -> None:
 def clear_cache() -> None:
     with _cache_lock:
         _cache.clear()
+    global _llm_down_until
     with _exhausted_lock:
         _exhausted.clear()
+        _llm_down_until = 0.0
     with _base_lock:
         _base_cache.clear()
 
@@ -574,7 +591,11 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
     cache_key = _cache_key(question, code, role, turns, data, lang)
     cached = _cache_get(cache_key)
     if cached is None and not _warming_up:
+        if _llm_down() and (backup := _engine_answer(question, data, code, role, actions, lang)):
+            return backup
         cached = _wait_for_warm_up(cache_key)
+        if cached is None and _llm_down() and (backup := _engine_answer(question, data, code, role, actions, lang)):
+            return backup  # the warm-up of this question has just failed
     if cached is not None:
         log.info("chat cache hit q=%r code=%s", question[:60], code)
         return cached
@@ -599,7 +620,9 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
         result = _parse(text)
         if not result["answer"]:
             raise ChatUnavailable(f"{model}: empty answer")
+        _mark_llm(True)
     except ChatUnavailable as error:
+        _mark_llm(False)
         # The LLM failed or took too long: answer from our own data when the question allows it.
         backup = fallback.answer(question, snap, code, role, suggestions(data, code, role, lang), lang)
         log.warning("chat llm failed after %d ms (%s); %s", (time.perf_counter() - built) * 1000, error,
@@ -623,6 +646,16 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
 
 
 # ---------- starter questions and warm-up ----------
+
+def _engine_answer(question: str, data, code, role, actions, lang: str) -> dict | None:
+    """The engine-data answer, used at once while the LLM is known to be down."""
+    snap = build_snapshot(data, code, role, actions, question)
+    backup = fallback.answer(question, snap, code, role, suggestions(data, code, role, lang), lang)
+    if backup:
+        log.info("chat llm down (for %.0f s more): engine answer q=%r", _llm_down_until - time.monotonic(),
+                 question[:60])
+    return backup
+
 
 def suggestions(data, code: str | None = None, role: str | None = None, lang: str = _lang.EN) -> list[str]:
     """3-4 starter questions for the screen (code = Error detail), the user's role and the language."""
@@ -717,6 +750,9 @@ def warm_up(data, role: str | None = None, actions: list[dict] | None = None, co
             entry = _warming[k]
             try:
                 if _cache_get(k) is not None:  # a tap asked it live while it was queued
+                    return
+                if _llm_down():  # no point asking now; a tap gets the engine answer
+                    log.info("chat warm-up paused, llm down: %r", q[:60])
                     return
                 with _warm_lock:
                     entry[1] = True
