@@ -753,7 +753,7 @@ def test_chat_prompt_rules(ds, llm):
     chat("Why is OEE low on Wednesdays?", at(ds, "2026-11-25 09:20"), role="Maintenance")
     system = llm.calls[0]["body"]["system_instruction"]["parts"][0]["text"]
     for rule in ("Answer ONLY the question asked", "Mention a countermeasure only for the codes",
-                 "Never add fixes, codes or facts", "say what the data shows and stop",
+                 "Never add fixes, codes or facts", "say so in one friendly sentence", "Never mention the snapshot",
                  "never the JSON field names", "never write as the user or as their role"):
         assert rule in system
     # the Wednesday snapshot carries no other code's fix in its focus
@@ -1201,3 +1201,30 @@ def test_warm_up_pauses_while_the_llm_is_down(ds, llm):
     chat_module.warm_up(frames, "Maintenance")
     chat_module._warm_pool.submit(lambda: None).result(timeout=10)
     assert len(llm.calls) == calls
+
+
+def test_about_questions_get_an_overview_in_their_language(ds):
+    from insights.fallback import about_lang
+    assert about_lang("tell me about the project", "en") == "en"
+    assert about_lang("Povedz mi o projekte", "en") == "sk"
+    assert about_lang("розкажи мені про проект", "uk") == "uk"
+    assert about_lang("роскажи про проект", "uk") == "uk"
+    assert about_lang("tell me about ST-038", "en") is None
+    assert about_lang("Why is OEE low on Wednesdays?", "en") is None
+
+
+def test_about_overview_has_real_numbers_and_no_internal_words(ds, monkeypatch):
+    import importlib
+    from datetime import datetime
+    from app.sim import snapshot as sim_snapshot
+    chat_module = importlib.import_module("insights.chat")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    data = sim_snapshot(ds, datetime(2026, 11, 25, 9, 20)).as_frames()
+    for question, word in (("tell me about the project", "OEE is 88.0 %"),
+                           ("Povedz mi o projekte", "OEE 88,0 %"),
+                           ("розкажи про проект", "OEE 88.0 %")):
+        reply = chat_module.chat(question, data, role="Maintenance")
+        assert word in reply["answer"] and "ST-038" in reply["answer"]
+        assert "snapshot" not in reply["answer"].lower() and reply["followups"]
+    assert chat_module._no_internal_words("The snapshot does not answer the question.") \
+        == "The line data does not answer the question."
