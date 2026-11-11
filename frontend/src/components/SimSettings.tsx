@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Pause, Play, SlidersHorizontal, X } from "lucide-react";
+import { Pause, Play, Presentation, SlidersHorizontal, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { SPEEDS, useSimClock, useSimControl, useSimState } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/SegmentedControl";
@@ -35,7 +36,8 @@ export function SimSettings({ className, withLabel }: { className?: string; with
 function Sheet({ onClose }: { onClose: () => void }) {
   const { now, speed, paused } = useSimClock();
   const { data } = useSimState();
-  const { setPaused, setSpeed, jumpTo, error } = useSimControl();
+  const { setPaused, setSpeed, jumpTo, startDemo, error } = useSimControl();
+  const navigate = useNavigate();
   const [target, setTarget] = useState(() => toLocalInput(now));
   const panel = useRef<HTMLDivElement>(null);
 
@@ -87,6 +89,25 @@ function Sheet({ onClose }: { onClose: () => void }) {
         <p className="text-caption text-text-secondary">
           Replays the line data at speed. Every screen shows data up to this moment.
         </p>
+
+        <button
+          type="button"
+          onClick={() => {
+            startDemo();
+            navigate("/");
+            onClose();
+          }}
+          className="mt-4 flex w-full items-center gap-3 rounded-card bg-bg-ink p-card-pad text-left text-white transition active:scale-[0.99]"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-badge bg-white/10">
+            <Presentation className="h-5 w-5" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-body font-semibold">Start demo</span>
+            <span className="block text-caption text-white/60">Wed 25 Nov 08:50 · 60× · camera stop at 09:08</span>
+          </span>
+          <Play className="h-5 w-5 shrink-0" aria-hidden />
+        </button>
 
         <div className="mt-4 flex items-center justify-between rounded-card bg-bg-subtle p-card-pad">
           <div>
