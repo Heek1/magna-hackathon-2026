@@ -67,6 +67,9 @@ SYSTEM = (
     "5. Write plain words with units (\"121 min of downtime\", \"87 pcs\", \"81.9 %\"), never the "
     "JSON field names. 1 lost piece = 1 planned minute; pp = OEE percentage points. For upcoming "
     "stops use their \"when\" label.\n"
+    "5b. 'What should X prepare for tomorrow' / 'what is coming up': answer from the upcoming stops "
+    "(when, code, what, confidence, pieces at risk, fix and its owner). If none belong to the user's role, "
+    "still name the next ones and who owns them; never refuse while upcoming stops exist.\n"
     "6. Talk to the user as their assistant (\"you\"); never write as the user or as their role. If "
     "role is set and you name fixes, the ones owned by that role come first.\n"
     "7. At most 60 words, plain text without markdown, in the answer language named in the last message.\n"
@@ -649,6 +652,12 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
         log.warning("chat numbers not in the snapshot %s q=%r answer=%r", unknown, question[:60],
                     result["answer"][:200])
     result["answer"] = _no_internal_words(result["answer"])
+    if _refuses(result["answer"]):
+        # The model gave up on a question our own data can answer (a starter, Error detail): use that.
+        backup = fallback.answer(question, snap, code, role, suggestions(data, code, role, tips_lang), lang)
+        if backup:
+            log.warning("chat llm refused a question the engine answers; engine answer q=%r", question[:60])
+            return backup
     if not result["followups"]:
         result["followups"] = [q for q in suggestions(data, code, role, tips_lang) if q != question][:MAX_FOLLOWUPS]
     _cache_put(cache_key, result)
@@ -656,6 +665,16 @@ def chat(question: str, data, history: list[dict] | None = None, code: str | Non
 
 
 # ---------- starter questions and warm-up ----------
+
+_REFUSAL = re.compile(
+    r"\b(cannot|can't|can not|unable to|not able to) (answer|tell|say|help)|\bi('m| am) sorry\b|"
+    r"nemôžem (odpovedať|povedať)|не можу (відповісти|сказати)", re.I)
+
+
+def _refuses(text: str) -> bool:
+    """The model says it cannot answer."""
+    return bool(_REFUSAL.search(text or ""))
+
 
 def _no_internal_words(text: str) -> str:
     """The model sometimes names its input ("The snapshot does not..."); the user only knows the line."""
