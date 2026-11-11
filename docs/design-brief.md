@@ -1,6 +1,6 @@
 # Design brief: mobile-first redesign
 
-This brief replaces the visual direction in the stage 2 parts of tasks 3 and 4. It comes from the
+This brief is the design for the mobile app. It comes from the
 organizers' feedback: the app must be simple, clear and open on a phone. A user must see at a
 glance **which errors happen at which moment**, **which errors cost the most**, and **what the fix
 is** — the most expensive errors are fixed first.

@@ -27,6 +27,27 @@ sim = Simulator(data.load(DATA_PATH))
 actions = ActionStore(DB_PATH)
 fixes = errors.load_fixes()
 
+# Example fixes for the public demo, so the Fixes screen is not empty after every redeploy.
+# Only with DEMO_SEED_ACTIONS=1 (set in the root Dockerfile) and only when there are no actions yet.
+# ST-038 is left out on purpose: the demo creates that action live.
+DEMO_ACTIONS = (("ST-047", "in_progress"), ("Q-031", "open"), ("ST-001", "done"))
+
+
+def seed_demo_actions(store: ActionStore, fixes_by_code: dict) -> int:
+    if store.list():
+        return 0
+    added = 0
+    for code, status in DEMO_ACTIONS:
+        fix = fixes_by_code.get(code)
+        if fix:
+            store.create(fix["action"], owner=fix.get("owner_role"), status=status)
+            added += 1
+    return added
+
+
+if os.environ.get("DEMO_SEED_ACTIONS") == "1":
+    seed_demo_actions(actions, fixes)
+
 
 async def _ticker() -> None:
     while True:

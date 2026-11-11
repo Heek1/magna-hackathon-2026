@@ -1,0 +1,22 @@
+# Keeps the free Render instance awake during the hackathon, so the QR code opens instantly
+# (a sleeping instance takes ~50 s to wake up). /api/health is public and returns {"ok": true}.
+# Disable after the pitch: Actions → Keep demo awake → ⋯ → Disable workflow.
+name: Keep demo awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 min; Render sleeps after 15 min without requests
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping /api/health
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 70 https://oee-engine.onrender.com/api/health) && [ "$code" = "200" ] && echo "awake ($code)" && exit 0
+            echo "attempt $i: $code"; sleep 10
+          done
+          exit 1

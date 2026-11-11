@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./
 COPY data/oee.xlsx /data/oee.xlsx
 COPY --from=web /web/dist /app/static
-ENV OEE_DATA=/data/oee.xlsx ACTIONS_DB=/app/state/actions.db STATIC_DIR=/app/static PORT=8000
+ENV OEE_DATA=/data/oee.xlsx ACTIONS_DB=/app/state/actions.db STATIC_DIR=/app/static PORT=8000 DEMO_SEED_ACTIONS=1
 RUN mkdir -p /app/state
 EXPOSE 8000
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
