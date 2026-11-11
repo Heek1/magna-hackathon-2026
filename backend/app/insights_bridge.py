@@ -5,6 +5,7 @@ Expected interface in backend/insights/__init__.py:
     what_if(data, remove, from_, to) -> dict              # {oee_before, oee_after, gain_pcs, gain_pp}
     chat(question, data, history, code, role, actions) -> {answer, sources, followups}
     suggestions(data, code, role) -> [str]                # both raise without GEMINI_API_KEY → 503
+    warm_up(data, role)                                   # starter answers into the cache, in the background
 where `data` = {"hours": df, "downtime": df, "nok": df}, trimmed to sim_time
 (original xlsx column names; df.attrs["sim_time"] holds the current simulation time).
 
@@ -21,9 +22,9 @@ try:
 except ImportError:
     what_if = None
 try:
-    from insights import chat, suggestions as _suggestions  # type: ignore
+    from insights import chat, suggestions as _suggestions, warm_up as _warm_up  # type: ignore
 except ImportError:
-    chat = _suggestions = None
+    chat = _suggestions = _warm_up = None
 try:
     from insights import upcoming as _upcoming  # type: ignore
 except ImportError:
@@ -92,4 +93,16 @@ def chat_suggestions(data: dict, code: str | None = None, role: str | None = Non
     """Starter questions; raises when the LLM is not available, so the app hides "Ask AI"."""
     if _suggestions is None:
         raise ChatUnavailable("suggestions() is not implemented yet")
-    return _suggestions(data, code, role)
+    questions = _suggestions(data, code, role)
+    if code is None:  # the Now screen asks for these: answer them in the background now
+        warm_chat(data, role)
+    return questions
+
+
+def warm_chat(data: dict, role: str | None = None) -> None:
+    """Precompute the starter answers in the background (no-op without a key)."""
+    if _warm_up is not None:
+        try:
+            _warm_up(data, role)
+        except Exception:  # warming is an optimisation only
+            pass
