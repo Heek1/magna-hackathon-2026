@@ -78,3 +78,15 @@ def test_english_station_names_and_whole_defects():
     assert "Kamera" not in json.dumps(c.get("/api/insights").json())
     defects = [e for e in c.get("/api/events").json() if e["kind"] == "defect"]
     assert defects and all(isinstance(e["value"], int) and e["value"] >= 1 for e in defects)
+
+
+def test_seed_demo_actions_only_when_empty(tmp_path):
+    from app.db import ActionStore
+    from app.errors import load_fixes
+    from app.main import seed_demo_actions
+    store = ActionStore(str(tmp_path / "seed.db"))
+    assert seed_demo_actions(store, load_fixes()) == 3
+    rows = store.list()
+    assert {r["status"] for r in rows} == {"open", "in_progress", "done"}
+    assert {r["owner"] for r in rows} == {"Maintenance", "Quality", "Logistics"}
+    assert seed_demo_actions(store, load_fixes()) == 0  # never twice, never over real actions
